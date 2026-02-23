@@ -58,7 +58,7 @@
                         </table>
                         <div class="oe_structure"/>
                     </div>
-                </t-call>
+                </t>
             </t>
         </template>
         <record id="action_report_rapport_bailleur" model="ir.actions.report">

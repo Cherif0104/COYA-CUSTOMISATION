@@ -727,3 +727,19 @@ a:not(.btn):not(.o_nav_entry):not(.dropdown-item):not(.coya-nav-link):hover {
     transform: rotate(360deg);
   }
 }
+
+// ===== Mode sombre désactivé : thème clair uniquement =====
+:root {
+  color-scheme: light !important;
+}
+html {
+  color-scheme: light !important;
+}
+// Masquer le bouton de bascule thème clair/sombre (navbar Odoo / user menu)
+.o_switch_color_scheme,
+[data-toggle="color_scheme"],
+button.o_switch_color_scheme,
+.dropdown-item[data-color-scheme],
+.o_user_menu .dropdown-item[data-color-scheme] {
+  display: none !important;
+}

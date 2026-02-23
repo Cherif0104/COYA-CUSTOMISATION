@@ -30,10 +30,10 @@
                     <div class="coya-login-left">
                         <div class="coya-login-brand">
                             <div class="coya-login-logo-circle">
-                                <img src="/sunugest_branding/static/img/logo_senegel.png" alt="COYA.PRO"/>
+                                <img src="/sunugest_branding/static/img/logo_senegel.png" alt="SENEGEL"/>
                             </div>
+                            <h2 class="coya-login-title">Create opportunity youth in Africa</h2>
                             <p class="coya-login-slogan">CITOYENNETÉ, TRANSPARENCE, COMPÉTENCES</p>
-                            <h2 class="coya-login-title">COYA.PRO</h2>
                         </div>
                         <div class="coya-login-card card border-0">
                             <div class="card-body">
@@ -50,7 +50,7 @@
                     <!-- Panneau droit : bloc institutionnel stratégique -->
                     <div class="coya-login-right">
                         <div class="coya-login-hero">
-                            <h2 class="coya-login-hero-title">Plateforme stratégique de gestion et d'accompagnement de la jeunesse africaine</h2>
+                            <h2 class="coya-login-hero-title">Create opportunity youth in Africa</h2>
                             <p class="coya-login-hero-subtitle">Pilotage, transparence et performance au service de l'impact social.</p>
                         </div>
                         <div class="coya-login-metrics">
@@ -116,6 +116,8 @@
         <xpath expr="//button[@name='redirect']" position="replace">
             <button type="submit" name="redirect" value="/web/become" class="btn btn-link btn-sm">Connexion superutilisateur</button>
         </xpath>
+        <!-- Suppression du lien « Créer un compte » / sign up -->
+        <xpath expr="//a[contains(@href, 'signup')]" position="replace"/>
     </template>
 
     <!-- Page « Vous êtes connecté » : textes en français -->
@@ -137,11 +139,7 @@
             <t t-set="head">
                 <script type="text/javascript">
                     document.addEventListener("DOMContentLoaded", () => {
-                        const cookies = document.cookie.split(';').map(c => c.trim());
-                        if (cookies.includes('color_scheme=dark')) {
-                            document.body.style.backgroundColor = "#1a2e24";
-                            document.body.style.color = "#F4F8FB";
-                        }
+                        document.documentElement.style.colorScheme = "light";
                     });
                     window.addEventListener('online', () => location.reload());
                 </script>

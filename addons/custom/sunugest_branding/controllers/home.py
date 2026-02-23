@@ -17,3 +17,8 @@ class Home(web_home.Home):
                 pass
         # Entrée directe sur le login (plus de landing)
         return request.redirect_query('/web/login', query=request.params)
+
+    @http.route('/web/signup', type='http', auth='none')
+    def signup_redirect(self, **kw):
+        """Désactive la page d'inscription : redirection vers le login."""
+        return request.redirect_query('/web/login', query=request.params)

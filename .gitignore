@@ -6,8 +6,9 @@
 # Fichiers de prod locaux (optionnel)
 docker-compose.prod.yml
 
-# Code source Odoo (on utilise l'image Docker officielle en déploiement)
+# Code source Odoo Community (non versionné : utiliser l'image Docker odoo:18 + addons/custom)
 odoo-18/
+odoo/
 
 # Python / cache
 __pycache__/

@@ -1,21 +1,17 @@
 -- =============================================================================
--- Organisation plateforme (mère) + fusion des tenants existants sans perte
--- de données métier (réattribution organization_id puis suppression des orgs
--- sources vides).
+-- FUSION DE PLUSIEURS ORGANISATIONS (ex. deux « SENEGEL ») SANS PERTE DE DONNÉES
+-- =============================================================================
+-- Où l’exécuter : Supabase Dashboard → SQL → New query → coller tout ce fichier → Run.
 --
--- 1) Colonne is_platform_root : l’org mère plateforme (non supprimable côté app).
--- 2) Si plusieurs lignes dans public.organizations :
---      choix du « keeper » = score max (profils×10 + projets×5 + départements×3
---      si la table existe), puis en cas d’égalité : nom/slug contenant « senegel »,
---      puis UUID préféré s’il existe, sinon created_at le plus ancien.
---      Réattribution dynamique de toutes les colonnes organization_id (hors
---      organizations), puis suppression des autres lignes organizations.
--- 3) Une seule org restante : is_platform_root = true pour cette ligne.
+-- Effet :
+--   1) Ajoute is_platform_root si absent.
+--   2) Si plusieurs lignes dans public.organizations : choisit UNE org « keeper »
+--      (plus de données : profils, projets, départements ; tie-break nom/slug senegel).
+--   3) Met à jour TOUTES les tables public.* qui ont une colonne organization_id
+--      pour pointer vers le keeper, puis supprime les autres lignes organizations.
 --
--- Après exécution : alignez VITE_PRIMARY_ORGANIZATION_ID sur l’UUID conservé
--- (le keeper). Ne mettez VITE_SINGLE_ORGANIZATION_MODE que si vous voulez
--- masquer temporairement les tenants dans l’UI (déconseillé si vous créez
--- des organisations hébergées).
+-- Après exécution : dans coya-pro/.env mettez VITE_PRIMARY_ORGANIZATION_ID=<UUID affiché en NOTICE>.
+-- Sauvegarde : faites un backup (point-in-time / export) avant la première exécution en prod.
 -- =============================================================================
 
 ALTER TABLE public.organizations
@@ -36,20 +32,20 @@ DECLARE
   has_departments boolean;
 BEGIN
   IF to_regclass('public.organizations') IS NULL THEN
-    RAISE NOTICE 'Table organizations absente — migration ignorée.';
+    RAISE NOTICE 'Table organizations absente — arrêt.';
     RETURN;
   END IF;
 
   SELECT count(*)::int INTO org_count FROM public.organizations;
 
   IF org_count = 0 THEN
-    RAISE NOTICE 'Aucune organisation — rien à faire.';
+    RAISE NOTICE 'Aucune organisation — arrêt.';
     RETURN;
   END IF;
 
   IF org_count = 1 THEN
     UPDATE public.organizations SET is_platform_root = true;
-    RAISE NOTICE 'Une seule organisation — marquée is_platform_root = true.';
+    RAISE NOTICE 'Une seule organisation — is_platform_root = true. UUID = %', (SELECT id FROM public.organizations LIMIT 1);
     RETURN;
   END IF;
 
@@ -113,7 +109,7 @@ BEGIN
     RAISE EXCEPTION 'Impossible de déterminer l’organisation conservée.';
   END IF;
 
-  RAISE NOTICE 'Organisation conservée (keeper) = %', keeper;
+  RAISE NOTICE '>>> KEEPER (organisation conservée, à mettre dans VITE_PRIMARY_ORGANIZATION_ID) = %', keeper;
 
   UPDATE public.organizations SET is_platform_root = false;
 
@@ -133,7 +129,7 @@ BEGIN
     ) USING keeper;
     GET DIAGNOSTICS n = ROW_COUNT;
     IF n > 0 THEN
-      RAISE NOTICE 'Table % : % lignes réattribuées vers le keeper', r.table_name, n;
+      RAISE NOTICE 'Table % : % lignes réattribuées', r.table_name, n;
     END IF;
   END LOOP;
 
@@ -141,5 +137,5 @@ BEGIN
 
   UPDATE public.organizations SET is_platform_root = true WHERE id = keeper;
 
-  RAISE NOTICE 'Fusion terminée — une organisation plateforme + données conservées.';
+  RAISE NOTICE 'Fusion terminée. Une seule organisation reste ; données métier réunies sur le keeper.';
 END $$;

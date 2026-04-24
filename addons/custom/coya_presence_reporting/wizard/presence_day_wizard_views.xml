@@ -4,12 +4,12 @@
         <field name="name">coya.presence.day.wizard.form</field>
         <field name="model">coya.presence.day.wizard</field>
         <field name="arch" type="xml">
-            <form string="Vue présences par jour">
+            <form string="Présences — Par date">
                 <group>
-                    <field name="date"/>
+                    <field name="date" help="Choisissez une date pour afficher uniquement les présences de cette journée."/>
                 </group>
                 <footer>
-                    <button name="action_open_day_view" string="Voir les présences" type="object" class="btn-primary"/>
+                    <button name="action_open_day_view" string="Ouvrir la vue" type="object" class="btn-primary"/>
                     <button string="Annuler" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>

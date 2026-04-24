@@ -1,65 +1,76 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
-    <!-- Menu super-admin : Présences / Extractions (Settings) -->
+    <!-- Menu super-admin : Pilotage présences (Paramètres) -->
     <record id="action_coya_presence_day" model="ir.actions.act_window">
-        <field name="name">Synthèse présences</field>
+        <field name="name">Présences — Synthèse</field>
         <field name="res_model">coya.presence.day</field>
         <field name="view_mode">list,pivot</field>
-        <field name="search_view_id" ref="coya_presence_policy.view_coya_presence_day_search"/>
+        <field name="search_view_id" ref="coya_presence_reporting.view_coya_presence_day_search_reporting"/>
+        <field name="context">{'search_default_group_department': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">Aucune donnée de présence.</p>
-            <p>Les statuts sont alimentés automatiquement à partir des pointages et des congés validés.
-               Vous pouvez exporter la liste (CSV/Excel) via le menu Action.</p>
+            <p>
+                Les statuts sont alimentés automatiquement à partir des pointages et des congés validés.
+                Utilisez les filtres (département, employé, date) puis exportez (CSV/Excel) via le menu Action.
+            </p>
         </field>
     </record>
     <record id="action_coya_presence_day_by_date" model="ir.actions.act_window">
-        <field name="name">Vue par jour</field>
+        <field name="name">Présences — Par date</field>
         <field name="res_model">coya.presence.day.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
     </record>
     <record id="action_coya_presence_week" model="ir.actions.act_window">
-        <field name="name">Synthèse par semaine</field>
+        <field name="name">Présences — Synthèse hebdomadaire</field>
         <field name="res_model">coya.presence.week</field>
         <field name="view_mode">list</field>
         <field name="search_view_id" ref="view_coya_presence_week_search"/>
+        <field name="context">{'search_default_group_week': 1}</field>
     </record>
     <record id="action_coya_presence_update_weeks" model="ir.actions.act_window">
-        <field name="name">Mettre à jour synthèses hebdo</field>
+        <field name="name">Présences — Recalcul hebdomadaire</field>
         <field name="res_model">coya.presence.update.week.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
     </record>
 
-    <record id="menu_coya_presence_extractions" model="ir.ui.menu">
-        <field name="name">Présences / Extractions</field>
+    <!-- Style Odoo Settings: Paramètres > COYA > Présences -->
+    <record id="menu_coya_settings_root" model="ir.ui.menu">
+        <field name="name">COYA</field>
         <field name="parent_id" ref="base.menu_base"/>
-        <field name="sequence">50</field>
+        <field name="sequence">60</field>
+        <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+    </record>
+    <record id="menu_coya_presence_extractions" model="ir.ui.menu">
+        <field name="name">Présences</field>
+        <field name="parent_id" ref="menu_coya_settings_root"/>
+        <field name="sequence">10</field>
         <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
     </record>
     <record id="menu_coya_presence_synthesis" model="ir.ui.menu">
-        <field name="name">Synthèse présences</field>
+        <field name="name">Synthèse</field>
         <field name="parent_id" ref="menu_coya_presence_extractions"/>
         <field name="sequence">1</field>
         <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         <field name="action" ref="action_coya_presence_day"/>
     </record>
     <record id="menu_coya_presence_by_day" model="ir.ui.menu">
-        <field name="name">Par jour</field>
+        <field name="name">Par date</field>
         <field name="parent_id" ref="menu_coya_presence_extractions"/>
         <field name="sequence">5</field>
         <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         <field name="action" ref="action_coya_presence_day_by_date"/>
     </record>
     <record id="menu_coya_presence_week" model="ir.ui.menu">
-        <field name="name">Synthèse par semaine</field>
+        <field name="name">Synthèse hebdomadaire</field>
         <field name="parent_id" ref="menu_coya_presence_extractions"/>
         <field name="sequence">10</field>
         <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         <field name="action" ref="action_coya_presence_week"/>
     </record>
     <record id="menu_coya_presence_update_weeks" model="ir.ui.menu">
-        <field name="name">Mettre à jour hebdo</field>
+        <field name="name">Recalcul hebdomadaire</field>
         <field name="parent_id" ref="menu_coya_presence_extractions"/>
         <field name="sequence">15</field>
         <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>

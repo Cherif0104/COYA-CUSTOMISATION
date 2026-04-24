@@ -5,7 +5,7 @@
         <field name="name">coya.presence.week.tree</field>
         <field name="model">coya.presence.week</field>
         <field name="arch" type="xml">
-            <list string="Synthèse par semaine" create="0">
+            <list string="Synthèse hebdomadaire" create="0">
                 <field name="week_start"/>
                 <field name="employee_id"/>
                 <field name="department_id"/>
@@ -27,6 +27,7 @@
                 <group expand="0" string="Grouper par">
                     <filter string="Semaine" name="group_week" context="{'group_by': 'week_start'}"/>
                     <filter string="Employé" name="group_employee" context="{'group_by': 'employee_id'}"/>
+                    <filter string="Département" name="group_department" context="{'group_by': 'department_id'}"/>
                 </group>
             </search>
         </field>

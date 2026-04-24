@@ -4,12 +4,12 @@
         <field name="name">coya.presence.update.week.wizard.form</field>
         <field name="model">coya.presence.update.week.wizard</field>
         <field name="arch" type="xml">
-            <form string="Mettre à jour synthèses hebdo">
+            <form string="Présences — Recalcul hebdomadaire">
                 <group>
-                    <field name="week_start"/>
+                    <field name="week_start" help="Lundi de la semaine à recalculer (pour tous les employés)."/>
                 </group>
                 <footer>
-                    <button name="action_update_weeks" string="Mettre à jour" type="object" class="btn-primary"/>
+                    <button name="action_update_weeks" string="Recalculer" type="object" class="btn-primary"/>
                     <button string="Annuler" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>

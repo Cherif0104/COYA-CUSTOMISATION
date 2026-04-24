@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+        <menuitem
+            id="menu_coya_collecte_contact_root"
+            name="Contacts (via collecte)"
+            parent="contacts.menu_contacts"
+            sequence="15"
+        />
+        <menuitem
+            id="menu_coya_create_contact_from_collecte"
+            name="Créer un contact"
+            parent="menu_coya_collecte_contact_root"
+            action="coya_crm_collecte.action_coya_create_contact_from_collecte_wizard"
+            sequence="10"
+        />
+    </data>
+</odoo>
+

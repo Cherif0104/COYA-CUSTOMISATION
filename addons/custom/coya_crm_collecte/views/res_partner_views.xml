@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+        <record id="view_res_partner_form_coya_collecte" model="ir.ui.view">
+            <field name="name">res.partner.form.coya.collecte</field>
+            <field name="model">res.partner</field>
+            <field name="inherit_id" ref="base.view_partner_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//notebook" position="inside">
+                    <page string="Collecte" name="coya_collecte">
+                        <group>
+                            <field name="coya_fiche_type_id" options="{'no_create': False, 'no_create_edit': False}"/>
+                            <field name="coya_collecte_section_label" readonly="1" nolabel="1"/>
+                        </group>
+                        <group string="Programme / Projet / Formation">
+                            <field name="coya_programme_id" options="{'no_create': False, 'no_create_edit': False}"/>
+                            <field name="coya_projet_id" options="{'no_create': False, 'no_create_edit': False}"/>
+                            <field name="coya_bootcamp_id" options="{'no_create': False, 'no_create_edit': False}"/>
+                            <field name="coya_cohorte_id" options="{'no_create': False, 'no_create_edit': False}"/>
+                        </group>
+                    </page>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>
+

@@ -1,5 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_coya_presence_week_user,coya.presence.week.user,model_coya_presence_week,base.group_user,1,0,0,0
-access_coya_presence_week_system,coya.presence.week.system,model_coya_presence_week,base.group_system,1,1,1,1
-access_coya_presence_day_wizard_system,coya.presence.day.wizard.system,model_coya_presence_day_wizard,base.group_system,1,1,1,1
-access_coya_presence_update_week_wizard_system,coya.presence.update.week.wizard.system,model_coya_presence_update_week_wizard,base.group_system,1,1,1,1

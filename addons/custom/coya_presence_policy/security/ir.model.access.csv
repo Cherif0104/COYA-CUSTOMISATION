@@ -1,5 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_coya_presence_day_user,coya.presence.day.user,model_coya_presence_day,base.group_user,1,0,0,0
-access_coya_presence_day_hr_manager,coya.presence.day.hr.manager,model_coya_presence_day,hr.group_hr_manager,1,1,1,1
-access_coya_presence_alerte_hr_manager,coya.presence.alerte.hr.manager,model_coya_presence_alerte,hr.group_hr_manager,1,1,1,1
-access_coya_presence_sanction_hr_manager,coya.presence.sanction.hr.manager,model_coya_presence_sanction,hr.group_hr_manager,1,1,1,1

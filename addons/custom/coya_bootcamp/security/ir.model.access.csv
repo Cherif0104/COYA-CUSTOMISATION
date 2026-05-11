@@ -1,5 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_coya_bootcamp_user,coya.bootcamp.user,model_coya_bootcamp,base.group_user,1,1,1,1
-access_coya_bootcamp_cohorte_user,coya.bootcamp.cohorte.user,model_coya_bootcamp_cohorte,base.group_user,1,1,1,1
-access_coya_bootcamp_intervenant_user,coya.bootcamp.intervenant.user,model_coya_bootcamp_intervenant,base.group_user,1,1,1,1
-access_coya_bootcamp_participant_user,coya.bootcamp.participant.user,model_coya_bootcamp_participant,base.group_user,1,1,1,1

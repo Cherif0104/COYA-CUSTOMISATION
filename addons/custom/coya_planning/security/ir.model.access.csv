@@ -1,2 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_coya_planning_slot_user,coya.planning.slot.user,model_coya_planning_slot,base.group_user,1,1,1,1

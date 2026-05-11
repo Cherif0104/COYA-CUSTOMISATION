@@ -14,6 +14,27 @@ begin;
 --   organization_id = (select p.organization_id from public.profiles p where p.user_id = auth.uid() limit 1)
 
 -- ---------------------------------------------------------------------------
+-- CQRS — Programme cockpit read model (P0)
+-- ---------------------------------------------------------------------------
+drop policy if exists programme_cockpit_read_models_select on public.programme_cockpit_read_models;
+create policy programme_cockpit_read_models_select
+on public.programme_cockpit_read_models for select
+to authenticated
+using (
+  organization_id = (select p.organization_id from public.profiles p where p.user_id = auth.uid() limit 1)
+);
+
+-- No client insert/update/delete — service_role/Edge functions only (bypass RLS).
+
+drop policy if exists projection_checkpoints_select on public.projection_checkpoints;
+create policy projection_checkpoints_select
+on public.projection_checkpoints for select
+to authenticated
+using (
+  organization_id = (select p.organization_id from public.profiles p where p.user_id = auth.uid() limit 1)
+);
+
+-- ---------------------------------------------------------------------------
 -- Territories
 -- ---------------------------------------------------------------------------
 drop policy if exists territories_select on public.territories;

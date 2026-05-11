@@ -1,4 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_coya_payslip_hr_user,coya.payslip.hr.user,model_coya_payslip,hr.group_hr_user,1,0,0,0
-access_coya_payslip_hr_manager,coya.payslip.hr.manager,model_coya_payslip,hr.group_hr_manager,1,1,1,1
-access_coya_payslip_line_hr_manager,coya.payslip.line.hr.manager,model_coya_payslip_line,hr.group_hr_manager,1,1,1,1

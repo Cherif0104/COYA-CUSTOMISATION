@@ -1,5 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_coya_trinite_plan_user,coya.trinite.plan.user,model_coya_trinite_plan,base.group_user,1,1,1,1
-access_coya_trinite_score_user,coya.trinite.score.user,model_coya_trinite_score,base.group_user,1,1,1,1
-access_coya_trinite_alerte_user,coya.trinite.alerte.user,model_coya_trinite_alerte,base.group_user,1,1,1,1
-access_coya_trinite_week_user,coya.trinite.week.user,model_coya_trinite_week,base.group_user,1,1,1,1

@@ -1,0 +1,66 @@
+/**
+ * Charte graphique COYA.PRO
+ * À appliquer à tous les écrans : Dashboard, Paramètres, administration, chaque module.
+ *
+ * Référence : types de graphiques et disposition validés sur le Dashboard.
+ * Accent : vert institutionnel SENEGEL. Fonds clairs, ombres douces, coins arrondis.
+ */
+
+:root {
+  /**
+   * Charte institutionnelle SENEGEL / COYA ERP (NEW DESIGN COYAGE UI — make figma)
+   * Vert principal #0D7A2B, secondaire #199C45, accent #F4C430
+   */
+  --coya-institutional: #0d7a2b;
+  --coya-institutional-secondary: #199c45;
+  --coya-institutional-accent: #f4c430;
+  --coya-institutional-bg-dark: #071018;
+
+  /* Shell app (sidebar / zones sombres institutionnelles) */
+  --coya-shell-sidebar-bg: #071018;
+  --coya-shell-sidebar-border: rgba(255, 255, 255, 0.08);
+
+  /* Primaire applicatif = institutionnel (remplace l’ancien menthe “ERP legacy”) */
+  --coya-primary: var(--coya-institutional);
+  --coya-primary-light: var(--coya-institutional-secondary);
+  --coya-primary-dark: #0a5e22;
+  --coya-primary-muted: rgba(13, 122, 43, 0.14);
+
+  /* Vert boutons / highlights (alias historique `coya-green`) */
+  --coya-green: var(--coya-institutional);
+  --coya-green-light: var(--coya-institutional-secondary);
+  --coya-emeraude: var(--coya-institutional-secondary);
+
+  /* Sémantique (indicateurs Dashboard : excellent → critique) */
+  --coya-success: #22c55e;
+  --coya-warning: #e8b923;
+  --coya-warning-amber: #d97706;
+  --coya-danger: #dc2626;
+
+  /* Neutres */
+  --coya-yellow: #e8b923;
+  --coya-yellow-light: #f0c94a;
+  --coya-ambre: #d97706;
+  --coya-or-barke: #b45309;
+  --coya-bg: #f9fafb; /* gray-50 — alignement Figma */
+  /* Pages cockpit Projets / Programmes (overlay NEW DESIGN — SaaS premium) */
+  --coya-enterprise-bg: #f8fafc;
+  --coya-enterprise-border: #e2e8f0;
+  --coya-enterprise-text: #0f172a;
+  --coya-enterprise-muted: #64748b;
+  --coya-bg-gradient-start: #f9fafb;
+  --coya-bg-gradient-end: #ffffff;
+  --coya-card-bg: #ffffff;
+  --coya-text: #111827;        /* gray-900 — alignement Figma */
+  --coya-text-muted: #6b7280;  /* gray-500 — alignement Figma */
+  --coya-border: #f3f4f6;      /* gray-100 — alignement Figma cards */
+
+  /* Ombres et forme */
+  --coya-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  --coya-shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.08);
+  --coya-radius: 0.75rem;
+  --coya-radius-lg: 1rem;
+  /* Aperçu RoleBadge super_admin : background-color utilise var(--coya-gap) (couleur, pas espacement) */
+  --coya-gap: var(--coya-primary);
+  --coya-font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}

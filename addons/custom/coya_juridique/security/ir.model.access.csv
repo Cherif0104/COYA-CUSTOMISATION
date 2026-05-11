@@ -1,4 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_coya_juridique_risque,risque.user,model_coya_juridique_risque,base.group_user,1,1,1,1
-access_coya_juridique_contrat,contrat.user,model_coya_juridique_contrat,base.group_user,1,1,1,1
-access_coya_juridique_contentieux,contentieux.user,model_coya_juridique_contentieux,base.group_user,1,1,1,1

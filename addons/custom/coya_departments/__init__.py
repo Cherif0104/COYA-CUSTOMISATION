@@ -1,1 +1,0 @@
-# Part of COYA.PRO. See LICENSE file for full copyright and licensing details.

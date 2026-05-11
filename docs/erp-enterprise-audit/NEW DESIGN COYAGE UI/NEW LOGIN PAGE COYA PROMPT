@@ -1,0 +1,189 @@
+# CONTEXTE
+Je développe une plateforme ERP / OS métier nommée “COYA ERP” pour l’organisation SENEGEL.
+Je souhaite générer une page de connexion (Login Page) moderne, corporate, premium et responsive.
+
+L’identité visuelle doit être inspirée :
+- de Jira / Linear / Notion / Stripe
+- avec une approche très propre, professionnelle et institutionnelle
+- UX fluide
+- design minimaliste mais haut de gamme
+- forte cohérence visuelle
+- style SaaS enterprise moderne
+
+Le logo officiel SENEGEL doit être intégré dans l’interface.
+
+---
+
+# OBJECTIF
+
+Créer une LOGIN PAGE FULLSCREEN moderne avec :
+- background image immersive
+- overlay corporate
+- glassmorphism léger
+- branding SENEGEL
+- UI enterprise
+- responsive desktop/mobile
+- animations douces
+- excellent contraste et lisibilité
+
+---
+
+# STRUCTURE VISUELLE
+
+## LAYOUT GLOBAL
+
+Disposition en split-screen :
+
+### PARTIE GAUCHE (branding / immersion)
+- image corporate moderne :
+  - bâtiment moderne
+  - smart city
+  - bureau premium
+  - digital governance
+  - innovation africaine
+- overlay vert corporate transparent
+- effet gradient premium
+- présence du logo SENEGEL centré
+- slogan :
+  “Citoyenneté. Transparence. Compétences.”
+
+Style :
+- cinematic
+- premium
+- moderne
+- institutionnel
+- très clean
+
+---
+
+### PARTIE DROITE (formulaire)
+Card login blanche ou glassmorphism :
+- coins arrondis XXL
+- ombre douce
+- padding premium
+- hiérarchie visuelle propre
+
+Contenu :
+- titre :
+  “Bienvenue”
+- sous-titre :
+  “Connectez-vous à votre espace COYA ERP”
+
+Champs :
+- nom d’utilisateur
+- mot de passe
+- toggle visibilité password
+- checkbox “Se souvenir de moi”
+- lien “Mot de passe oublié”
+
+Boutons :
+- bouton principal vert corporate
+- bouton secondaire SSO
+
+Footer :
+- © SENEGEL
+- version plateforme
+
+---
+
+# CHARTE GRAPHIQUE
+
+## Couleurs
+
+Vert principal :
+#0D7A2B
+
+Vert secondaire :
+#199C45
+
+Jaune accent :
+#F4C430
+
+Fond sombre :
+#0F172A
+
+Blanc :
+#FFFFFF
+
+Gris UI :
+#E5E7EB
+
+---
+
+# STYLE UI/UX
+
+Le design doit respecter :
+- spacing parfait
+- grid system moderne
+- composants SaaS enterprise
+- accessibilité AA
+- animations micro-interactions
+- hover states élégants
+- transitions fluides
+- responsive design
+
+Inspirations :
+- Linear
+- Atlassian
+- Stripe Dashboard
+- Vercel
+- Framer
+- Notion
+
+---
+
+# EFFETS VISUELS
+
+Ajouter :
+- overlay gradient
+- blur subtil
+- lumière diffuse
+- glow léger autour du logo
+- effet depth premium
+- ombres réalistes
+- animation douce au hover
+
+---
+
+# TECHNO STACK
+
+Générer :
+- React + Next.js
+- TailwindCSS
+- TypeScript
+- Framer Motion
+- Responsive complet
+- composants réutilisables
+
+---
+
+# LIVRABLES ATTENDUS
+
+Je veux :
+1. Le design UI complet
+2. Le composant React complet
+3. Le Tailwind styling
+4. Les animations Framer Motion
+5. Version desktop + mobile
+6. Architecture propre et scalable
+
+---
+
+# IMPORTANT
+
+Le rendu doit être :
+- ultra professionnel
+- corporate premium
+- institutionnel moderne
+- digne d’un ERP gouvernemental nouvelle génération
+- cohérent avec une plateforme OS métier enterprise
+
+Éviter :
+- style amateur
+- surcharge visuelle
+- couleurs agressives
+- effets cheap
+- design bootstrap classique
+
+Le rendu doit donner l’impression :
+“ERP gouvernemental moderne, intelligent et haut de gamme”.

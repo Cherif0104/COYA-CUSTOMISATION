@@ -1,5 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_coya_fiche_type_user,coya.fiche.type.user,model_coya_fiche_type,base.group_user,1,1,1,1
-access_coya_fiche_champ_user,coya.fiche.champ.user,model_coya_fiche_champ,base.group_user,1,1,1,1
-access_coya_fiche_reponse_user,coya.fiche.reponse.user,model_coya_fiche_reponse,base.group_user,1,1,1,1
-access_coya_fiche_reponse_ligne_user,coya.fiche.reponse.ligne.user,model_coya_fiche_reponse_ligne,base.group_user,1,1,1,1

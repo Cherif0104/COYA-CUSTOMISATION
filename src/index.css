@@ -1,0 +1,245 @@
+@import './design-tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Mode sombre supprimé : la plateforme utilise uniquement le thème clair. */
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--coya-font);
+  background-color: #f9fafb; /* gray-50 — alignement Figma */
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Overlay de chargement : rotation fluide (motion design) */
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animate-loading-spin {
+  animation: loading-spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Progress indéterminée : shimmer horizontal */
+@keyframes loading-shimmer {
+  0% { transform: translateX(-60%); opacity: 0.55; }
+  50% { transform: translateX(60%); opacity: 0.95; }
+  100% { transform: translateX(160%); opacity: 0.55; }
+}
+
+/* Overlay branding : apparition et respiration */
+@keyframes loading-overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes loading-logo-soft-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.95; transform: scale(1.03); }
+}
+@keyframes loading-slogan-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes loading-shape-float {
+  0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 0.18; }
+  33% { transform: translate(3%, -3%) scale(1.03) rotate(2deg); opacity: 0.28; }
+  66% { transform: translate(-2%, 2%) scale(0.98) rotate(-1deg); opacity: 0.22; }
+}
+.animate-loading-overlay-in { animation: loading-overlay-fade-in 0.5s ease-out forwards; }
+.animate-loading-logo-pulse { animation: loading-logo-soft-pulse 2.5s ease-in-out infinite; }
+.animate-loading-slogan-in { animation: loading-slogan-in 0.4s ease-out forwards; }
+.animate-loading-shape { animation: loading-shape-float 8s ease-in-out infinite; }
+
+@layer components {
+  /* =========================================================================
+     COYA × Figma — Design System partagé (alignement textuel `make figma`)
+     ========================================================================= */
+
+  /* --- Page wrapper (tous les modules) ---------------------------------- */
+  .coya-page {
+    @apply p-6 space-y-6;
+  }
+
+  .coya-page-header {
+    @apply flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between;
+  }
+  .coya-page-title {
+    @apply text-gray-900 text-xl font-semibold tracking-tight;
+  }
+  .coya-page-subtitle {
+    @apply text-gray-500 text-sm;
+  }
+
+  /* --- Boutons (Figma) -------------------------------------------------- */
+  .coya-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    background-color: var(--coya-institutional);
+  }
+  .coya-btn-primary:hover:not(:disabled) {
+    background-color: var(--coya-institutional-secondary);
+  }
+  .coya-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .coya-btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .coya-btn-icon {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition-colors hover:bg-gray-50;
+  }
+
+  /* --- Cards (Figma) ---------------------------------------------------- */
+  .coya-card {
+    @apply rounded-2xl border border-gray-100 bg-white shadow-sm;
+  }
+  .coya-card-padded {
+    @apply rounded-2xl border border-gray-100 bg-white p-5 shadow-sm;
+  }
+  .coya-card-hover {
+    @apply transition-shadow hover:shadow-md;
+  }
+
+  /* --- KPI cards (Figma) ----------------------------------------------- */
+  .coya-kpi-card {
+    @apply rounded-2xl border border-gray-100 bg-white p-5 shadow-sm;
+  }
+  .coya-kpi-icon {
+    @apply flex h-10 w-10 items-center justify-center rounded-xl text-white;
+  }
+  .coya-kpi-value {
+    @apply text-gray-900 text-2xl font-bold leading-none;
+  }
+  .coya-kpi-label {
+    @apply text-gray-500 text-xs mt-1;
+  }
+
+  /* --- Tabs pill (Figma) ----------------------------------------------- */
+  .coya-tabs-pill {
+    @apply flex gap-1 bg-gray-100 p-1 rounded-xl w-fit;
+  }
+  .coya-tabs-pill-item {
+    @apply px-4 py-2 rounded-lg text-sm transition-colors text-gray-500 hover:text-gray-700;
+  }
+  .coya-tabs-pill-item-active {
+    @apply px-4 py-2 rounded-lg text-sm bg-white text-gray-900 shadow-sm font-medium;
+  }
+
+  /* --- Filter chips (Figma) -------------------------------------------- */
+  .coya-chip {
+    @apply px-3 py-2 rounded-xl text-xs font-medium transition-colors bg-white border border-gray-200 text-gray-600 hover:bg-gray-50;
+  }
+  .coya-chip-active {
+    @apply px-3 py-2 rounded-xl text-xs font-medium bg-[#0d1b2a] text-white;
+  }
+
+  /* --- Search input (Figma) -------------------------------------------- */
+  .coya-search-bar {
+    @apply flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2.5;
+  }
+  .coya-search-bar input {
+    @apply bg-transparent text-sm text-gray-600 placeholder-gray-400 outline-none w-full border-0 p-0 focus:ring-0;
+  }
+
+  /* --- Tables (Figma) -------------------------------------------------- */
+  .coya-table-wrap {
+    @apply rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden;
+  }
+  .coya-table {
+    @apply w-full;
+  }
+  .coya-table thead tr {
+    @apply bg-gray-50 border-b border-gray-100;
+  }
+  .coya-table thead th {
+    @apply text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase;
+  }
+  .coya-table tbody tr {
+    @apply border-b border-gray-50 hover:bg-gray-50 transition-colors;
+  }
+  .coya-table tbody td {
+    @apply px-5 py-4 text-sm text-gray-700;
+  }
+
+  /* --- Badges (Figma) -------------------------------------------------- */
+  .coya-badge {
+    @apply inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full;
+  }
+
+  /* --- Progress bar (Figma) -------------------------------------------- */
+  .coya-progress {
+    @apply h-2 bg-gray-100 rounded-full overflow-hidden;
+  }
+  .coya-progress-bar {
+    @apply h-full rounded-full transition-all;
+  }
+
+  /* --- Welcome banner (Dashboard) -------------------------------------- */
+  .coya-welcome-banner {
+    @apply relative overflow-hidden rounded-2xl p-6 text-white;
+    background: linear-gradient(
+      115deg,
+      var(--coya-institutional-bg-dark) 0%,
+      #0a3d18 42%,
+      var(--coya-institutional-secondary) 100%
+    );
+  }
+
+  /* --- Form fields (Figma) --------------------------------------------- */
+  .coya-input {
+    @apply rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100;
+  }
+  .coya-select {
+    @apply rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100;
+  }
+
+  /* --- Boutons d'action héritage (compat) ------------------------------ */
+  .btn-3d-base {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors duration-150 select-none;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-3d-primary {
+    @apply btn-3d-base text-white;
+    background: var(--coya-institutional);
+  }
+  .btn-3d-primary:hover {
+    background: var(--coya-institutional-secondary);
+  }
+  .btn-3d-primary:active {
+    background: var(--coya-primary-dark);
+  }
+
+  .btn-3d-secondary {
+    @apply btn-3d-base border border-gray-200 bg-white text-gray-600;
+  }
+  .btn-3d-secondary:hover { @apply bg-gray-50; }
+
+  .btn-3d-danger {
+    @apply btn-3d-base text-white;
+    background: #ef4444;
+  }
+  .btn-3d-danger:hover { background: #dc2626; }
+}
+
+/* =========================================================================
+   Compatibilité legacy : alias hero-panel vers le composant welcome banner
+   pour les anciens écrans qui en utilisent encore (transition douce).
+   ========================================================================= */
+.coya-hero-panel {
+  @apply relative overflow-hidden rounded-2xl px-6 py-5 text-white;
+  background: linear-gradient(to right, #0d1b2a, #1a3a5c);
+}
+.coya-hero-badge {
+  @apply inline-flex items-center rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-white;
+}

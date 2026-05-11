@@ -376,5 +376,38 @@ create unique index if not exists outbox_event_id_unique on public.outbox_events
 create index if not exists outbox_pending_idx on public.outbox_events (published_at) where published_at is null;
 alter table public.outbox_events enable row level security;
 
+-- ---------------------------------------------------------------------------
+-- 8) CQRS — Read models / projections (P0 cockpit Programme)
+-- ---------------------------------------------------------------------------
+create table if not exists public.programme_cockpit_read_models (
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  programme_id uuid not null references public.programmes(id) on delete cascade,
+  schema_id text not null default 'programme_cockpit.v1',
+  model_version int not null default 1,
+  projection_run_id uuid null,
+  projection_status text not null default 'ready', -- building|ready|failed|stale
+  projection_error jsonb not null default '{}'::jsonb,
+  generated_at timestamptz not null default now(),
+  watermark_event_occurred_at timestamptz null,
+  watermark_source_updated_at timestamptz null,
+  model jsonb not null default '{}'::jsonb,
+  primary key (organization_id, programme_id)
+);
+
+alter table public.programme_cockpit_read_models enable row level security;
+
+create table if not exists public.projection_checkpoints (
+  projection_name text not null,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  programme_id uuid null references public.programmes(id) on delete cascade,
+  last_built_at timestamptz not null default now(),
+  last_event_occurred_at timestamptz null,
+  watermark_position text null,
+  metadata jsonb not null default '{}'::jsonb,
+  primary key (projection_name, organization_id, programme_id)
+);
+
+alter table public.projection_checkpoints enable row level security;
+
 commit;
 

@@ -1,10 +1,15 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocalization } from '../contexts/LocalizationContext';
+import { useAuth } from '../contexts/AuthContextSupabase';
 import type { Contact, Translation } from '../types';
 import { Language } from '../types';
 import * as dataCollectionService from '../services/dataCollectionService';
 import { getCollectePayloadFieldLabel } from '../utils/collecteParticipantFields';
+import OrganizationService from '../services/organizationService';
+import { insertContactInteraction } from '../services/contactInteractionService';
 import ContactExchangePanel from './ContactExchangePanel';
+import { DetailPageShell } from './ui/DetailPageShell';
+import { ModuleSection } from './ui/ModuleSection';
 
 const statusStyles: Record<Contact['status'], string> = {
   Lead: 'bg-blue-100 text-blue-800',
@@ -43,6 +48,11 @@ function fieldRow(label: string, value: React.ReactNode) {
 
 function digitsOnly(v: string) {
   return v.replace(/\D/g, '');
+}
+
+function isUuidContactId(id: string | number): boolean {
+  const s = String(id);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 }
 
 /** Regroupe e-mails et lignes téléphoniques pour éviter les doublons visuels (même valeur sur plusieurs champs). */
@@ -111,9 +121,87 @@ const CRMContactDetailPage: React.FC<Props> = ({
   onUpdateContact,
 }) => {
   const { t, language } = useLocalization();
+  const { user } = useAuth();
   const isFr = language === Language.FR;
   const [profileTab, setProfileTab] = useState<'crm' | 'collecte'>('crm');
   const pres = useContactPresentation(contact, t);
+  const [orgIdState, setOrgIdState] = useState<string | null>(contact.organizationId ?? null);
+  const [waHintVisible, setWaHintVisible] = useState(false);
+  const [waLogBusy, setWaLogBusy] = useState(false);
+  const [waLogFeedback, setWaLogFeedback] = useState<'ok' | 'err' | null>(null);
+
+  useEffect(() => {
+    if (contact.organizationId) {
+      setOrgIdState(contact.organizationId);
+      return;
+    }
+    let alive = true;
+    void OrganizationService.getCurrentUserOrganizationId().then((id) => {
+      if (alive) setOrgIdState(id);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [contact.organizationId]);
+
+  const waHintStorageKey = useMemo(() => `crm-wa-open-hint-${String(contact.id)}`, [contact.id]);
+
+  useEffect(() => {
+    if (!pres.waHref || !canEdit || !isUuidContactId(contact.id)) {
+      setWaHintVisible(false);
+      return;
+    }
+    try {
+      setWaHintVisible(!sessionStorage.getItem(waHintStorageKey));
+    } catch {
+      setWaHintVisible(true);
+    }
+  }, [pres.waHref, canEdit, contact.id, waHintStorageKey]);
+
+  const dismissWaHint = useCallback(() => {
+    try {
+      sessionStorage.setItem(waHintStorageKey, '1');
+    } catch {
+      /* ignore */
+    }
+    setWaHintVisible(false);
+  }, [waHintStorageKey]);
+
+  const logWhatsappOpen = useCallback(async () => {
+    const orgId = contact.organizationId ?? orgIdState;
+    if (!canEdit || !orgId || !isUuidContactId(contact.id)) return;
+    setWaLogBusy(true);
+    setWaLogFeedback(null);
+    try {
+      const detail = isFr ? 'Ouverture depuis l\'interface CRM' : 'Opened from CRM UI';
+      const { error } = await insertContactInteraction({
+        organizationId: orgId,
+        contactId: String(contact.id),
+        contact,
+        actionType: 'whatsapp',
+        motif: String(t('crm_exchange_action_whatsapp')),
+        detail,
+        statusUpdatedTo: null,
+        createdByUserId: user?.id != null ? String(user.id) : null,
+      });
+      if (error) {
+        setWaLogFeedback('err');
+        return;
+      }
+      setWaLogFeedback('ok');
+      dismissWaHint();
+    } finally {
+      setWaLogBusy(false);
+    }
+  }, [
+    canEdit,
+    contact,
+    dismissWaHint,
+    isFr,
+    orgIdState,
+    t,
+    user?.id,
+  ]);
 
   const { submission, collection } = useMemo(() => dataCollectionService.resolveCollecteContext(contact), [contact]);
 
@@ -143,7 +231,7 @@ const CRMContactDetailPage: React.FC<Props> = ({
   };
 
   return (
-    <div className="min-h-full bg-gradient-to-b from-slate-100/90 to-[#f0f2f6] text-slate-900">
+    <DetailPageShell tone="crm" className="min-h-full" maxWidthClass="w-full">
       <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 px-3 py-3 shadow-sm backdrop-blur-md sm:px-5">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
@@ -260,6 +348,37 @@ const CRMContactDetailPage: React.FC<Props> = ({
                     </button>
                   )}
                 </div>
+                {pres.waHref && canEdit && isUuidContactId(contact.id) && (
+                  <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+                    {waHintVisible && (
+                      <p className="text-[11px] leading-snug text-slate-600">
+                        {t('crm_contact_detail_wa_prompt_once')}{' '}
+                        <button
+                          type="button"
+                          className="font-semibold text-emerald-800 underline decoration-emerald-600/60 hover:text-emerald-900"
+                          onClick={dismissWaHint}
+                        >
+                          {t('crm_contact_detail_wa_dismiss_hint')}
+                        </button>
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      disabled={waLogBusy || !(contact.organizationId ?? orgIdState)}
+                      onClick={() => void logWhatsappOpen()}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/90 px-3 py-2 text-[11px] font-semibold text-emerald-900 shadow-sm hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <i className="fab fa-whatsapp text-sm" aria-hidden />
+                      {waLogBusy ? String(t('loading')) : t('crm_contact_detail_wa_log_register')}
+                    </button>
+                    {waLogFeedback === 'ok' && (
+                      <p className="text-[11px] font-medium text-emerald-700">{t('crm_contact_detail_wa_log_ok')}</p>
+                    )}
+                    {waLogFeedback === 'err' && (
+                      <p className="text-[11px] font-medium text-red-600">{t('crm_contact_detail_wa_log_err')}</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -371,9 +490,13 @@ const CRMContactDetailPage: React.FC<Props> = ({
 
           {/* Droite : synthèse dossier (pas de doublon e-mail / téléphone) */}
           <aside className="flex flex-col gap-3 bg-slate-50/40 p-4">
-            <section className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{t('crm_contact_detail_snapshot_title')}</p>
-              <dl className="mt-3 space-y-2.5 text-xs">
+            <ModuleSection
+              title={t('crm_contact_detail_snapshot_title')}
+              iconClass="fas fa-id-card"
+              collapseOnMobile
+              className="!shadow-md"
+            >
+              <dl className="space-y-2.5 text-xs">
                 <div>
                   <dt className="text-[10px] font-semibold uppercase text-slate-400">{t('contact_company')}</dt>
                   <dd className="mt-0.5 font-semibold text-slate-900">{contact.company}</dd>
@@ -401,7 +524,7 @@ const CRMContactDetailPage: React.FC<Props> = ({
                   </div>
                 )}
               </dl>
-            </section>
+            </ModuleSection>
 
             <section className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between">
@@ -422,7 +545,7 @@ const CRMContactDetailPage: React.FC<Props> = ({
           </aside>
         </div>
       </div>
-    </div>
+    </DetailPageShell>
   );
 };
 

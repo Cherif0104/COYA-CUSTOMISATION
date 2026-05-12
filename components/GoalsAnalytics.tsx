@@ -36,13 +36,14 @@ const GoalsAnalytics: React.FC<GoalsAnalyticsProps> = ({ objectives, projects })
     const locale = language === Language.FR ? 'fr-FR' : 'en-US';
     const fallbackProjectName = t('unknown_project') || 'Projet inconnu';
 
-    const projectMap = useMemo(() => {
-        return projects.reduce<Record<string, string>>((acc, project) => {
+    const projectMap = useMemo((): Record<string, string> => {
+        const acc: Record<string, string> = {};
+        for (const project of projects) {
             if (project.id !== undefined && project.id !== null) {
                 acc[String(project.id)] = project.title;
             }
-            return acc;
-        }, {});
+        }
+        return acc;
     }, [projects]);
 
     const getProgressFromKeyResults = (keyResults: KeyResult[] = []) => {

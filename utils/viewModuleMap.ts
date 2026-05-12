@@ -21,7 +21,8 @@ export function viewNameToModuleName(view: string): ModuleName | null {
     projects: 'projects',
     goals_okrs: 'goals_okrs',
     courses: 'courses',
-    /** Hub LMS (`handleSetView` normalise `courses` → `formation`). */
+    /** Hub LMS e-learning APEX (`handleSetView` normalise `courses` / `formation` → `apex`). */
+    apex: 'courses',
     formation: 'courses',
     course_detail: 'courses',
     course_management: 'course_management',

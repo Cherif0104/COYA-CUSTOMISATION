@@ -23,6 +23,7 @@ export type AuditAction =
   | 'logout'
   | 'export'
   | 'notification'
+  | 'automate'
   | 'custom';
 
 export class AuditLogService {

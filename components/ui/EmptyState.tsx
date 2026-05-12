@@ -1,12 +1,12 @@
 import React from 'react';
 import { cn } from './cn';
-import { Button, ButtonProps } from './Button';
+import { Button, type ButtonVariant } from './Button';
 
 export interface EmptyStateProps {
   title: string;
   description?: string;
   icon?: React.ReactNode;
-  action?: { label: string } & Pick<ButtonProps, 'onClick' | 'variant'>;
+  action?: { label: string; variant?: ButtonVariant; onClick?: () => void };
   className?: string;
 }
 

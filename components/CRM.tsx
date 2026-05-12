@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContextSupabase';
 import { Contact, RESOURCE_MANAGEMENT_ROLES, DataCollection, Language, Translation } from '../types';
 import * as dataCollectionService from '../services/dataCollectionService';
 import * as crmActivityService from '../services/crmActivityService';
+import { CRM_INTERACTIONS_CHANGED_EVENT } from '../services/contactInteractionService';
 import OrganizationService from '../services/organizationService';
 import { draftSalesEmail } from '../services/geminiService';
 import ConfirmationModal from './common/ConfirmationModal';
@@ -17,6 +18,7 @@ import {
 import CollecteModule from './CollecteModule';
 import CrmWebhookSettingsCard from './CrmWebhookSettingsCard';
 import CRMContactDetailPage from './CRMContactDetailPage';
+import ModuleRichHub from './common/ModuleRichHub';
 
 const statusStyles: Record<Contact['status'], string> = {
     Lead: 'bg-blue-100 text-blue-800',
@@ -315,7 +317,7 @@ const CRM: React.FC<CRMProps> = ({
         setView?.('crm_sales');
     }, [setView]);
 
-    // Tous les utilisateurs peuvent gérer les contacts (isolation gérée par RLS)
+    // `canManage` : rôles « gestion des ressources » (paramétrage / webhooks). Les actions sur un contact donné passent par `canManageContact` (créateur / propriétaire ou même liste de rôles).
     const canManage = useMemo(() => {
         if (!user) return false;
         return RESOURCE_MANAGEMENT_ROLES.includes(user.role);
@@ -375,6 +377,15 @@ const CRM: React.FC<CRMProps> = ({
             cancelled = true;
         };
     }, [contacts.length]);
+
+    useEffect(() => {
+        const reload = () => {
+            void crmActivityService.listCrmInteractions({ limit: 40 }).then((rows) => setInteractions(rows));
+        };
+        if (typeof window === 'undefined') return undefined;
+        window.addEventListener(CRM_INTERACTIONS_CHANGED_EVENT, reload);
+        return () => window.removeEventListener(CRM_INTERACTIONS_CHANGED_EVENT, reload);
+    }, []);
 
     useEffect(() => {
         let cancelled = false;
@@ -566,7 +577,11 @@ const CRM: React.FC<CRMProps> = ({
         if (!user) return;
         setSelectedContact(contact);
         setIsLoading(true);
-        const body = await draftSalesEmail(contact, user);
+        const body = await draftSalesEmail(contact, {
+          authorName: user.fullName ?? user.name,
+          authorEmail: user.email,
+          authorRole: user.role,
+        } satisfies Record<string, unknown>);
         setEmailBody(body);
         setIsLoading(false);
     };
@@ -812,6 +827,32 @@ const CRM: React.FC<CRMProps> = ({
                     </div>
                 </div>
             </header>
+
+            <div className="px-4 sm:px-6 lg:px-8 pb-4">
+              <ModuleRichHub
+                isFr={language === Language.FR}
+                setView={setView}
+                excludeViews={['crm_sales']}
+                sections={[
+                  {
+                    key: 'crm-scope',
+                    titleFr: 'Couverture fonctionnelle CRM',
+                    titleEn: 'CRM functional coverage',
+                    icon: 'fas fa-layer-group',
+                    bulletsFr: [
+                      'Les indicateurs détaillés (contacts, leads, pipeline) sont affichés juste ci-dessous dans cette même vue.',
+                      'Vues liste, pipeline Kanban, interactions et onglet Collecte intégré.',
+                      'Fiche contact riche : historique, emails, rattachements campagne.',
+                    ],
+                    bulletsEn: [
+                      'Detailed KPIs (contacts, leads, pipeline) are shown just below in this view.',
+                      'List view, Kanban pipeline, interactions and embedded Collecte tab.',
+                      'Rich contact record: history, emails, campaign links.',
+                    ],
+                  },
+                ]}
+              />
+            </div>
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             {permissionMessage && (

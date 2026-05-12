@@ -30,7 +30,7 @@ export const moduleDisplayNames: Record<ModuleName, string> = {
   'comptabilite': 'Comptabilité',
   'coya_drive': 'COYA Drive',
   'daf_services': 'Moyens Généraux',
-  'courses': 'Formations',
+  'courses': 'APEX (e-learning)',
   'jobs': 'Offres d\'Emploi',
   'crm_sales': 'CRM & Ventes',
   'qualite': 'Qualité',
@@ -39,7 +39,7 @@ export const moduleDisplayNames: Record<ModuleName, string> = {
   'programme': 'Programme',
   'collecte': 'Collecte',
   'user_management': 'Droits d\'accès / Utilisateurs',
-  'course_management': 'Gestion des Formations',
+  'course_management': 'Studio APEX (catalogue)',
   'job_management': 'Gestion des Jobs',
   'leave_management_admin': 'Gestion des Congés',
   'organization_management': 'Gestion des Organisations',
@@ -71,7 +71,7 @@ const moduleCategories: Record<string, { label: string; icon: string; modules: M
     modules: ['programme', 'comptabilite'],
   },
   formation: {
-    label: 'Formation & Bootcamp',
+    label: 'APEX & Bootcamp',
     icon: 'fas fa-book-open',
     modules: ['courses'],
   },
@@ -474,13 +474,16 @@ const UserModulePermissions: React.FC<UserModulePermissionsProps> = ({ users, ca
     if (!canEdit || !selectedUser || !selectedUser.profileId || selectedUserIds.size === 0) return;
     setBulkApplyToSelected(true);
     try {
-      const templateRows = Object.entries(permissions).map(([moduleName, perms]) => ({
-        moduleName,
-        canRead: perms.canRead,
-        canWrite: perms.canWrite,
-        canDelete: perms.canDelete,
-        canApprove: perms.canApprove,
-      }));
+      const templateRows = (Object.keys(permissions) as ModuleName[]).map((moduleName) => {
+        const perms = permissions[moduleName];
+        return {
+          moduleName,
+          canRead: perms.canRead,
+          canWrite: perms.canWrite,
+          canDelete: perms.canDelete,
+          canApprove: perms.canApprove,
+        };
+      });
       let applied = 0;
       for (const uid of selectedUserIds) {
         if (String(uid) === String(selectedUser.id)) continue;

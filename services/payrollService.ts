@@ -372,10 +372,13 @@ export async function simulatePaySlipFromAttendance(profileId: string, periodSta
     ]);
     const employee = employees.find((e) => String(e.profileId) === String(profileId));
     if (!employee) return null;
-    const userIdByProfile = (profiles.data || []).reduce<Record<string, string>>((acc, row: any) => {
-      if (row?.id && row?.user_id) acc[String(row.id)] = String(row.user_id);
-      return acc;
-    }, {});
+    const userIdByProfile = ((profiles.data || []) as any[]).reduce(
+      (acc: Record<string, string>, row: any) => {
+        if (row?.id && row?.user_id) acc[String(row.id)] = String(row.user_id);
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
     const compliance = hrAnalyticsService.computePresenceCompliance({
       employees: [employee],
       sessions,

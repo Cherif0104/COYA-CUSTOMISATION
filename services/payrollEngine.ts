@@ -132,10 +132,13 @@ export async function fetchPayrollEngineContext(
     }),
     DataService.getProfiles(),
   ]);
-  const userIdByProfile = (profiles.data || []).reduce<Record<string, string>>((acc, row: any) => {
-    if (row?.id && row?.user_id) acc[String(row.id)] = String(row.user_id);
-    return acc;
-  }, {});
+  const userIdByProfile = ((profiles.data || []) as any[]).reduce(
+    (acc: Record<string, string>, row: any) => {
+      if (row?.id && row?.user_id) acc[String(row.id)] = String(row.user_id);
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
   return {
     organizationId,
     periodStart,

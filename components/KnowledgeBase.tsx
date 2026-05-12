@@ -168,13 +168,15 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ documents, users = [], pr
 
     // Analytics
     const analytics = useMemo(() => {
-        const totalViews = documents.reduce((sum, d) => sum + (d.viewCount || 0), 0);
-        const mostViewed = [...documents].sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))[0];
+        const totalViews = documents.reduce((sum, d) => sum + Number(d.viewCount ?? 0), 0);
+        const mostViewed = [...documents].sort(
+            (a, b) => Number(b.viewCount ?? 0) - Number(a.viewCount ?? 0),
+        )[0];
         const mostActiveAuthor = documents.reduce((acc, doc) => {
             acc[doc.createdBy] = (acc[doc.createdBy] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
-        const topAuthor = Object.entries(mostActiveAuthor).sort((a, b) => b[1] - a[1])[0];
+        const topAuthor = Object.entries(mostActiveAuthor).sort((a, b) => Number(b[1]) - Number(a[1]))[0];
         const recentDocuments = documents.filter(d => {
             const date = new Date(d.createdAt);
             const weekAgo = new Date();
@@ -1169,7 +1171,9 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ documents, users = [], pr
                                                 size={Math.min(6, Math.max(3, users.filter((u) => u.profileId).length || 1))}
                                                 value={editSharedProfileIds}
                                                 onChange={(e) =>
-                                                    setEditSharedProfileIds(Array.from(e.target.selectedOptions, (o) => o.value))
+                                                    setEditSharedProfileIds(
+                                                        Array.from(e.target.selectedOptions as HTMLCollectionOf<HTMLOptionElement>, (o) => o.value),
+                                                    )
                                                 }
                                                 className="w-full px-2 py-1 border border-gray-300 rounded-lg text-sm"
                                             >
@@ -1190,7 +1194,9 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ documents, users = [], pr
                                                 size={Math.min(5, Math.max(2, departments.length || 1))}
                                                 value={editSharedDepartmentIds}
                                                 onChange={(e) =>
-                                                    setEditSharedDepartmentIds(Array.from(e.target.selectedOptions, (o) => o.value))
+                                                    setEditSharedDepartmentIds(
+                                                        Array.from(e.target.selectedOptions as HTMLCollectionOf<HTMLOptionElement>, (o) => o.value),
+                                                    )
                                                 }
                                                 className="w-full px-2 py-1 border border-gray-300 rounded-lg text-sm"
                                             >
@@ -1210,7 +1216,9 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ documents, users = [], pr
                                                 size={Math.min(5, Math.max(2, projects.length || 1))}
                                                 value={editSharedProjectIds}
                                                 onChange={(e) =>
-                                                    setEditSharedProjectIds(Array.from(e.target.selectedOptions, (o) => o.value))
+                                                    setEditSharedProjectIds(
+                                                        Array.from(e.target.selectedOptions as HTMLCollectionOf<HTMLOptionElement>, (o) => o.value),
+                                                    )
                                                 }
                                                 className="w-full px-2 py-1 border border-gray-300 rounded-lg text-sm"
                                             >

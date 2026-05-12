@@ -355,7 +355,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                 return [updatedJob, ...prevJobs];
               }
             });
-            console.log('✅ JobManagement - Job mis à jour en temps réel:', updatedJob.title, 'Candidats:', updatedJob.applicantsCount || updatedJob.applicants?.length || 0);
+            console.log('✅ JobManagement - Job mis à jour en temps réel:', updatedJob.title, 'Candidats:', updatedJob.applicants?.length ?? 0);
           }
         } catch (error) {
           console.error('❌ Erreur rechargement job en temps réel:', error);

@@ -22,6 +22,7 @@ import {
   NAV_SESSION_COLLECTE_PRESET_FORMATION_ID,
   NAV_SESSION_CRM_OPEN_COLLECTE_TAB,
 } from '../contexts/AppNavigationContext';
+import ModuleRichHub from './common/ModuleRichHub';
 
 interface SettingsProps {
   reminderDays: number;
@@ -176,7 +177,7 @@ const Settings: React.FC<SettingsProps> = ({
     pushIf('department_management', 'Départements', 'Departments', 'fas fa-sitemap', 'Structure', 'Structure', canAccessModule('department_management'));
     pushIf('postes_management', 'Postes & fiches de poste', 'Job positions', 'fas fa-user-tag', 'Accès & RH', 'Access & HR', isAdminOrSuper);
     pushIf('user_management', 'Utilisateurs & droits', 'Users & permissions', 'fas fa-user-cog', 'Accès & RH', 'Access & HR', canAccessModule('user_management'));
-    pushIf('course_management', 'Formations (catalogue)', 'Training catalog', 'fas fa-chalkboard-teacher', 'Contenus', 'Content', canAccessModule('course_management'));
+    pushIf('course_management', 'APEX (catalogue)', 'APEX catalog', 'fas fa-chalkboard-teacher', 'Contenus', 'Content', canAccessModule('course_management'));
     pushIf('job_management', 'Offres d’emploi', 'Job offers', 'fas fa-briefcase', 'Contenus', 'Content', canAccessModule('job_management'));
     pushIf(
       'leave_management_admin',
@@ -703,6 +704,62 @@ const Settings: React.FC<SettingsProps> = ({
               : 'Your account and application preferences.'}
         </p>
       </header>
+
+      {setView ? (
+        <ModuleRichHub
+          isFr={isFr}
+          setView={setView}
+          excludeViews={['settings']}
+          metrics={[
+            {
+              labelFr: 'Automatisations (scan)',
+              labelEn: 'Automation (scan)',
+              value: automationKpis ? String(automationKpis.scanned.projects) : '—',
+              hintFr: 'Projets scannés dernier cycle',
+              hintEn: 'Projects scanned last cycle',
+            },
+            {
+              labelFr: 'Actions auto',
+              labelEn: 'Auto actions',
+              value: automationKpis ? String(automationKpis.actions.total) : '—',
+              hintFr: 'Notifications & mises à jour',
+              hintEn: 'Notifications & updates',
+            },
+            {
+              labelFr: 'Sévérité critique',
+              labelEn: 'Critical severity',
+              value: automationKpis ? String(automationKpis.bySeverity.critical) : '—',
+              hintFr: 'Observabilité plateforme',
+              hintEn: 'Platform observability',
+            },
+            {
+              labelFr: 'Utilisateurs',
+              labelEn: 'Users',
+              value: users?.length != null ? String(users.length) : '—',
+              hintFr: 'Annuaire chargé',
+              hintEn: 'Directory loaded',
+            },
+          ]}
+          sections={[
+            {
+              key: 'settings-nav',
+              titleFr: 'Paramètres comme hub d’administration',
+              titleEn: 'Settings as an admin hub',
+              icon: 'fas fa-sliders-h',
+              bulletsFr: [
+                'Rubriques plateforme (super-admin) : libellés, widgets dashboard, automatisation.',
+                'Rubriques organisation : utilisateurs, postes, formations, congés.',
+                'Les modules métier restent accessibles via la barre latérale.',
+              ],
+              bulletsEn: [
+                'Platform sections (super-admin): labels, dashboard widgets, automation.',
+                'Organization sections: users, positions, courses, leave.',
+                'Business modules stay reachable from the sidebar.',
+              ],
+            },
+          ]}
+        />
+      ) : null}
 
       {showAdminTab ? (
         <div className="flex p-1 mb-8 bg-slate-100 rounded-xl border border-slate-200 max-w-md">

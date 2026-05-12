@@ -3,78 +3,59 @@ import OrganizationService from '../../services/organizationService';
 import * as comptabiliteService from '../../services/comptabiliteService';
 import type { FiscalYear } from '../../types';
 import {
+  AccountingAuxiliaireView,
   AccountingBudgetsView,
+  AccountingClotureView,
   AccountingComptaGeneraleView,
   AccountingDashboardView,
   AccountingFacturationView,
   AccountingFiscaliteView,
+  AccountingPaiementsView,
   AccountingParametresView,
   AccountingRapportsView,
   AccountingTresorerieView,
-  AccountingRouteEmpty,
 } from './AccountingViews';
 import AccountingJournalLive from './AccountingJournalLive';
 import type { AccountingRouteId } from './accountingRoutes';
+import { PillTabs } from '../../ui-runtime';
 
 const STORAGE_ROUTE = 'coya.accounting.shell.route.v2';
 
+type AccountingModuleShellProps = {
+  /** Ouvre la vue avancée (legacy) lorsque définie. */
+  onOpenLegacy?: () => void;
+};
+
 export type { AccountingRouteId } from './accountingRoutes';
 
-type NavGroup = { title: string; items: { id: AccountingRouteId; label: string }[] };
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    title: 'TABLEAU DE BORD',
-    items: [
-      { id: 'journal', label: 'Journal' },
-      { id: 'ecritures', label: 'Écritures' },
-      { id: 'grand_livre', label: 'Grand livre' },
-      { id: 'plan_comptable', label: 'Plan comptable' },
-      { id: 'balance', label: 'Balance' },
-      { id: 'bilan', label: 'Bilan' },
-      { id: 'compte_resultat', label: 'Compte de résultat' },
-      { id: 'flux', label: 'Tableau de flux' },
-      { id: 'budgets', label: 'Budgets' },
-      { id: 'cloture', label: 'Clôture' },
-    ],
-  },
-  {
-    title: 'TRÉSORERIE',
-    items: [
-      { id: 'banques', label: 'Comptes bancaires' },
-      { id: 'caisse', label: 'Caisse' },
-      { id: 'rapprochements', label: 'Rapprochements' },
-    ],
-  },
-  {
-    title: 'CLIENTS & FOURNISSEURS',
-    items: [
-      { id: 'clients', label: 'Clients' },
-      { id: 'fournisseurs', label: 'Fournisseurs' },
-      { id: 'facturation', label: 'Facturation' },
-      { id: 'paiements', label: 'Paiements' },
-    ],
-  },
-  {
-    title: 'FISCALITÉ',
-    items: [
-      { id: 'tva', label: 'TVA' },
-      { id: 'impots', label: 'Impôts & Taxes' },
-      { id: 'declarations', label: 'Déclarations' },
-    ],
-  },
-  {
-    title: 'PARAMÈTRES',
-    items: [
-      { id: 'analytique', label: 'Analytique' },
-      { id: 'devise', label: 'Devise' },
-      { id: 'centres_couts', label: 'Centre de coûts' },
-      { id: 'utilisateurs', label: 'Utilisateurs & Accès' },
-    ],
-  },
+const NAV_ITEMS: { id: AccountingRouteId; label: string }[] = [
+  { id: 'journal', label: 'Journal' },
+  { id: 'ecritures', label: 'Écritures' },
+  { id: 'grand_livre', label: 'Grand livre' },
+  { id: 'plan_comptable', label: 'Plan comptable' },
+  { id: 'balance', label: 'Balance' },
+  { id: 'bilan', label: 'Bilan' },
+  { id: 'compte_resultat', label: 'Compte de résultat' },
+  { id: 'flux', label: 'Tableau de flux' },
+  { id: 'budgets', label: 'Budgets' },
+  { id: 'cloture', label: 'Clôture' },
+  { id: 'banques', label: 'Comptes bancaires' },
+  { id: 'caisse', label: 'Caisse' },
+  { id: 'rapprochements', label: 'Rapprochements' },
+  { id: 'clients', label: 'Clients' },
+  { id: 'fournisseurs', label: 'Fournisseurs' },
+  { id: 'facturation', label: 'Facturation' },
+  { id: 'paiements', label: 'Paiements' },
+  { id: 'tva', label: 'TVA' },
+  { id: 'impots', label: 'Impôts & Taxes' },
+  { id: 'declarations', label: 'Déclarations' },
+  { id: 'analytique', label: 'Analytique' },
+  { id: 'devise', label: 'Devise' },
+  { id: 'centres_couts', label: 'Centre de coûts' },
+  { id: 'utilisateurs', label: 'Utilisateurs & Accès' },
 ];
 
-const ALL_IDS = new Set(NAV_GROUPS.flatMap((g) => g.items.map((i) => i.id)));
+const ALL_IDS = new Set(NAV_ITEMS.map((i) => i.id));
 
 function readStoredRoute(): AccountingRouteId | null {
   try {
@@ -86,7 +67,7 @@ function readStoredRoute(): AccountingRouteId | null {
   }
 }
 
-const AccountingModuleShell: React.FC = () => {
+const AccountingModuleShell: React.FC<AccountingModuleShellProps> = ({ onOpenLegacy }) => {
   const [route, setRouteState] = useState<AccountingRouteId>('journal');
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [orgLabel, setOrgLabel] = useState<string | null>(null);
@@ -128,8 +109,6 @@ const AccountingModuleShell: React.FC = () => {
     }
   }, []);
 
-  const flatNav = useMemo(() => NAV_GROUPS.flatMap((g) => g.items), []);
-
   const mainContent = useMemo(() => {
     switch (route) {
       case 'journal':
@@ -157,71 +136,78 @@ const AccountingModuleShell: React.FC = () => {
       case 'tva':
       case 'impots':
       case 'declarations':
-        return <AccountingFiscaliteView />;
+        return <AccountingFiscaliteView organizationId={organizationId} focus={route} />;
       case 'devise':
         return <AccountingDashboardView organizationId={organizationId} />;
       case 'utilisateurs':
         return <AccountingParametresView organizationId={organizationId} />;
       case 'cloture':
-        return <AccountingRouteEmpty title="Clôture" message="Workflow de clôture d’exercice : brancher les écrans sur accounting_period_closures lorsque le périmètre métier sera figé." />;
+        return <AccountingClotureView organizationId={organizationId} />;
       case 'clients':
-        return <AccountingRouteEmpty title="Clients" message="Les auxiliaires clients ne sont pas encore exposés dans ce module. Les factures client peuvent être gérées depuis le module commercial." />;
+        return <AccountingAuxiliaireView organizationId={organizationId} variant="clients" />;
       case 'fournisseurs':
-        return <AccountingRouteEmpty title="Fournisseurs" message="Auxiliaires fournisseurs non branchés. Utilisez le journal et le plan comptable pour les écritures fournisseurs." />;
+        return <AccountingAuxiliaireView organizationId={organizationId} variant="fournisseurs" />;
       case 'paiements':
-        return <AccountingRouteEmpty title="Paiements" message="Écran de suivi des règlements : à connecter aux écritures de trésorerie et aux flux bancaires." />;
+        return <AccountingPaiementsView organizationId={organizationId} />;
       default:
         return <AccountingJournalLive />;
     }
   }, [route, organizationId]);
 
   return (
-    <div className="p-6 space-y-6 text-gray-900">
+    <div className="p-6 space-y-6 text-slate-900">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-gray-900">Comptabilité</h2>
-          <p className="text-gray-500 text-sm mt-1">
+          <h2 className="text-lg font-semibold tracking-tight text-slate-900">Comptabilité</h2>
+          <p className="mt-1 text-sm text-slate-500 max-w-2xl">
             Journal et plan comptable connectés à Supabase (RLS par organisation). Les autres écrans s’enrichissent au fil des migrations.
           </p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm shrink-0 max-w-md">
-          <p className="font-medium text-slate-800">{orgLabel ?? 'Organisation'}</p>
-          <p className="text-xs text-slate-500 mt-1">
-            {organizationId ? `ID : ${organizationId}` : 'Aucune organisation — connectez un compte avec une organisation.'}
-          </p>
-          {fiscalYears.length > 0 ? (
-            <p className="text-xs text-slate-500 mt-2">
-              Exercices :{' '}
-              {fiscalYears
-                .slice(0, 4)
-                .map((fy) => fy.label || `${fy.dateStart} → ${fy.dateEnd}`)
-                .join(' · ')}
-              {fiscalYears.length > 4 ? '…' : ''}
+        <div className="flex flex-col gap-2 sm:items-end sm:text-right">
+          <div className="max-w-md shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
+            <p className="font-medium text-slate-800">{orgLabel ?? 'Organisation'}</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {organizationId ? `ID : ${organizationId}` : 'Aucune organisation — connectez un compte avec une organisation.'}
             </p>
-          ) : organizationId ? (
-            <p className="text-xs text-amber-700 mt-2">Aucun exercice fiscal en base — créez-en via l’administration ou les migrations comptables.</p>
+            {fiscalYears.length > 0 ? (
+              <p className="mt-2 text-xs text-slate-500">
+                Exercices :{' '}
+                {fiscalYears
+                  .slice(0, 4)
+                  .map((fy) => fy.label || `${fy.dateStart} → ${fy.dateEnd}`)
+                  .join(' · ')}
+                {fiscalYears.length > 4 ? '…' : ''}
+              </p>
+            ) : organizationId ? (
+              <p className="mt-2 text-xs text-amber-700">
+                Aucun exercice fiscal en base — créez-en via l’administration ou les migrations comptables.
+              </p>
+            ) : null}
+          </div>
+          {onOpenLegacy ? (
+            <button
+              type="button"
+              onClick={onOpenLegacy}
+              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              Ouvrir la vue avancée (legacy)
+            </button>
           ) : null}
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 p-1.5 inline-flex flex-wrap gap-1">
-        {flatNav.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setRoute(item.id)}
-            className={`rounded-xl font-medium transition-all px-3 py-2 text-xs sm:text-sm ${
-              route === item.id ? 'bg-coya-green text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-            aria-label={item.label}
-            aria-current={route === item.id ? 'page' : undefined}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <div className="space-y-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <PillTabs<AccountingRouteId>
+            className="max-w-full"
+            items={NAV_ITEMS}
+            value={route}
+            onChange={setRoute}
+          />
+        </div>
 
-      <div className="min-w-0">{mainContent}</div>
+        <div className="min-w-0 flex-1">{mainContent}</div>
+      </div>
     </div>
   );
 };

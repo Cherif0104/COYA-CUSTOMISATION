@@ -20,7 +20,7 @@ export function usePlanningToday() {
     }
     setLoading(true);
     const today = toYMD(new Date());
-    DataAdapter.getPlanningSlots({ dateFrom: today, dateTo: today, userId: user.id })
+    DataAdapter.getPlanningSlots({ dateFrom: today, dateTo: today, userId: String(user.id) })
       .then(setSlots)
       .finally(() => setLoading(false));
   }, [user?.id]);

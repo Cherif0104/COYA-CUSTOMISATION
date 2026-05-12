@@ -168,7 +168,7 @@ const AnalyticsPredictif: React.FC<AnalyticsPredictifProps> = ({
         subtitle: `${courses.length} ${localize('courses', 'formations')} · ${formationNgoAnalyticsTrainingSubtitle(isFr)}`,
         level: performanceLevelFromScore(avgCourseProgress),
         icon: 'fas fa-book-open',
-        onAction: () => setView('formation'),
+        onAction: () => setView('apex'),
         actionLabel: localize('View courses', 'Voir les formations'),
       });
     }

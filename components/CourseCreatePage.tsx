@@ -15,6 +15,7 @@ import {
   Trash2,
   Upload,
   UserCheck,
+  X,
   Users,
   Video,
 } from 'lucide-react';

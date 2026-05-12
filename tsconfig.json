@@ -1,5 +1,5 @@
 {
-  "exclude": ["node_modules", "dist"],
+  "exclude": ["node_modules", "dist", "make figma", "cypress", "supabase/functions", "scripts"],
   "compilerOptions": {
     "target": "ES2022",
     "experimentalDecorators": true,
@@ -12,7 +12,8 @@
     ],
     "skipLibCheck": true,
     "types": [
-      "node"
+      "node",
+      "vite/client"
     ],
     "moduleResolution": "bundler",
     "isolatedModules": true,

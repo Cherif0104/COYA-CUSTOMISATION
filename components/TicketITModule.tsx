@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import StructuredModulePage from './common/StructuredModulePage';
+import ModuleRichHub from './common/ModuleRichHub';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useAuth } from '../contexts/AuthContextSupabase';
 import {
@@ -620,6 +621,14 @@ const TicketITModule: React.FC = () => {
     }
   };
 
+  const ticketHubMetrics = useMemo(() => {
+    const total = tickets.length;
+    const open = tickets.filter((t) => t.status !== 'resolved' && t.status !== 'rejected').length;
+    const resolved = tickets.filter((t) => t.status === 'resolved').length;
+    const critical = tickets.filter((t) => t.priority === 'critical').length;
+    return { total, open, resolved, critical };
+  }, [tickets]);
+
   const sections = [
     {
       key: 'workflow',
@@ -664,6 +673,59 @@ const TicketITModule: React.FC = () => {
           {error}
         </div>
       )}
+
+      <ModuleRichHub
+        isFr={isFr}
+        excludeViews={['ticket_it']}
+        metrics={[
+          {
+            labelFr: 'Tickets total',
+            labelEn: 'Total tickets',
+            value: String(ticketHubMetrics.total),
+            hintFr: 'Organisation courante',
+            hintEn: 'Current organization',
+          },
+          {
+            labelFr: 'Ouverts / en cours',
+            labelEn: 'Open / in flight',
+            value: String(ticketHubMetrics.open),
+            hintFr: 'Hors résolu ou refusé',
+            hintEn: 'Excluding resolved or rejected',
+          },
+          {
+            labelFr: 'Résolus',
+            labelEn: 'Resolved',
+            value: String(ticketHubMetrics.resolved),
+            hintFr: 'Historique SLA',
+            hintEn: 'SLA history',
+          },
+          {
+            labelFr: 'Priorité critique',
+            labelEn: 'Critical priority',
+            value: String(ticketHubMetrics.critical),
+            hintFr: 'File express IT',
+            hintEn: 'Express IT queue',
+          },
+        ]}
+        sections={[
+          {
+            key: 'it',
+            titleFr: 'Couloir IT & collaboration',
+            titleEn: 'IT corridor & collaboration',
+            icon: 'fas fa-headset',
+            bulletsFr: [
+              'Messagerie : canaux d’incident et escalade rapide.',
+              'Drive : pièces jointes et preuves conservées hors ticket.',
+              'Paramètres : types de panne extensibles (référentiel).',
+            ],
+            bulletsEn: [
+              'Messaging: incident channels and quick escalation.',
+              'Drive: attachments and evidence kept outside the ticket.',
+              'Settings: extensible issue types (referential).',
+            ],
+          },
+        ]}
+      />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <select

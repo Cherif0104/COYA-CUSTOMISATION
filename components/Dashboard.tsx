@@ -111,6 +111,8 @@ const ProjectStatusPieChart: React.FC<{ projects: Project[]; onViewProjects: () 
             'Not Started': 0,
             'In Progress': 0,
             'Completed': 0,
+            'On Hold': 0,
+            Cancelled: 0,
         };
         projects.forEach(p => counts[p.status]++);
         return counts;
@@ -407,7 +409,7 @@ const IntelligentInsights: React.FC<{
       const summary = courses.length === 0 ? localize('Start a course.', 'Démarrez une formation.') : localize(`Avg. progress ${avgProgress.toFixed(0)}%. ${inProgress} in progress.`, `Progression moy. ${avgProgress.toFixed(0)} %. ${inProgress} en cours.`);
       list.push({
         id: 'courses',
-        view: 'formation',
+        view: 'apex',
         icon: 'fas fa-book-open',
         title: localize('Training', 'Formations'),
         metric,
@@ -700,8 +702,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   }, [setView, canAccessModule]);
   const showOKR = canAccessModule ? canAccessModule('goals_okrs' as ModuleName) : false;
 
+  const authUserIdStr = user?.id != null ? String(user.id) : undefined;
   const { daysWorkedThisWeek, objectivesToday, hoursThisWeek, loading: dashboardDataLoading } = useDashboardData(
-    user?.id,
+    authUserIdStr,
     objectives,
     timeLogs
   );
@@ -712,7 +715,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     invoices,
     expenses,
     leaveRequests,
-    user?.id
+    authUserIdStr
   );
   const { visibility: dashboardVisibility } = useDashboardSettings();
   const visibility = dashboardVisibility ?? {};
@@ -1251,7 +1254,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       <div className="mt-10">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-coya-text">{t('my_courses')}</h2>
-          <a href="#" onClick={(e) => { e.preventDefault(); setView('formation'); }} className="text-sm font-medium text-coya-primary hover:text-coya-primary-light">{t('view_all_courses')}</a>
+          <a href="#" onClick={(e) => { e.preventDefault(); setView('apex'); }} className="text-sm font-medium text-coya-primary hover:text-coya-primary-light">{t('view_all_courses')}</a>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
           {courses.slice(0, 2).map(course => <CourseCard key={course.id} course={course} />)}

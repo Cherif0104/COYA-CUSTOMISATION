@@ -13,6 +13,7 @@ export type LogCategory =
   | 'api'           // Appels API
   | 'render'        // Rendu / UI
   | 'data'          // Chargement données
+  | 'course'        // Parcours formation / LMS
   | 'error'         // Erreurs
   | 'performance';   // Performance
 

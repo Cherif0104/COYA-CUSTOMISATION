@@ -1,10 +1,10 @@
 import { supabase } from './supabaseService';
 import { ApiHelper, isLikelyPostgrestSelectError } from './apiHelper';
-import { Project, Invoice, Expense, Contact, TimeLog, LeaveRequest, Course, Objective, Document, CurrencyCode, PresenceSession, PresenceStatus, Employee, EmployeeHrAttachment, PresenceStatusEvent, HrAttendancePolicy, HrWorkforceAnomaly, WorkMode, WorkforceTimelineSegmentRow, EmployeeWorkSchedule } from '../types';
+import { Project, Invoice, Expense, Contact, TimeLog, LeaveRequest, Course, Objective, Document, CurrencyCode, PresenceSession, PresenceStatus, Employee, EmployeeHrAttachment, PresenceStatusEvent, HrAttendancePolicy, HrWorkforceAnomaly, WorkMode, WorkforceTimelineSegmentRow, EmployeeWorkSchedule, Meeting } from '../types';
 import OrganizationService from './organizationService';
 import DepartmentService from './departmentService';
 import { CurrencyService } from './currencyService';
-import { handleOptionalTableError, isTableUnavailable } from './optionalTableGuard';
+import { handleOptionalTableError, isMissingTableError, isTableUnavailable } from './optionalTableGuard';
 import { logger } from './loggerService';
 import { derivePersistedInvoiceStatus } from './invoiceDerivedStatus';
 
@@ -1290,25 +1290,24 @@ export class DataService {
 
   // ===== INVOICES =====
   static async getInvoices() {
-    const invoiceColumns =
-      'id,invoice_number,number,client_name,amount,currency_code,exchange_rate,base_amount_usd,due_date,status,receipt_file_name,receipt_data_url,paid_date,paid_amount,recurring_source_id,user_id,created_by,created_by_name,created_at,updated_at';
-    const invoiceColumnsCompat =
-      'id,invoice_number,client_name,amount,currency_code,exchange_rate,base_amount_usd,due_date,status,receipt_file_name,receipt_data_url,paid_date,paid_amount,recurring_source_id,user_id,created_by,created_by_name,created_at,updated_at';
+    const invoiceSelectVariants = [
+      'id,invoice_number,client_name,amount,tax,total,currency_code,exchange_rate,base_amount_usd,due_date,status,receipt_file_name,receipt_data_url,paid_date,paid_amount,recurring_source_id,user_id,created_by,created_at,updated_at',
+      'id,invoice_number,client_name,amount,tax,total,due_date,status,paid_date,paid_amount,user_id,created_by,created_at,updated_at',
+      'id,invoice_number,client_name,amount,due_date,status,user_id,created_at,updated_at',
+    ];
 
-    let result = await ApiHelper.get(
-      'invoices',
-      {
-        select: invoiceColumns,
-        order: 'created_at.desc',
-      },
-      30000,
-    );
-    if (result.error && isLikelyPostgrestSelectError(result.error)) {
+    let result: { data: unknown; error: unknown } = { data: null, error: new Error('no invoice select variant') };
+    for (const select of invoiceSelectVariants) {
       result = await ApiHelper.get(
         'invoices',
-        { select: invoiceColumnsCompat, order: 'created_at.desc' },
+        {
+          select,
+          order: 'created_at.desc',
+        },
         30000,
       );
+      if (!result.error) return result;
+      if (!isLikelyPostgrestSelectError(result.error)) break;
     }
     if (result.error && isLikelyPostgrestSelectError(result.error)) {
       result = await ApiHelper.get('invoices', { select: '*', order: 'created_at.desc' }, 30000);
@@ -1351,7 +1350,7 @@ export class DataService {
       const normalizedStatus = invoice.status?.toLowerCase().replace(/\s+/g, '_') || 'draft';
 
       let paidForDerive = 0;
-      if (invoice.paidAmount !== undefined && invoice.paidAmount !== null && invoice.paidAmount !== '') {
+      if (invoice.paidAmount != null) {
         const p = Number(invoice.paidAmount);
         if (!Number.isNaN(p) && p > 0) paidForDerive = p;
       }
@@ -1387,6 +1386,25 @@ export class DataService {
       
       // Ajouter les colonnes optionnelles seulement si elles ont une valeur
       // (elles peuvent ne pas exister dans la table)
+      if (invoice.vatAmount !== undefined && invoice.vatAmount !== null) {
+        const vat = Number(invoice.vatAmount);
+        if (!Number.isNaN(vat) && vat !== 0) {
+          insertData.tax = vat;
+        }
+      }
+      if (invoice.totalAmount !== undefined && invoice.totalAmount !== null) {
+        const tot = Number(invoice.totalAmount);
+        if (!Number.isNaN(tot) && tot > 0) {
+          insertData.total = tot;
+        }
+      } else if (insertData.tax != null) {
+        const base = Number(invoice.amount) || 0;
+        const tot = base + Number(insertData.tax);
+        if (tot > 0) {
+          insertData.total = tot;
+        }
+      }
+
       if (invoice.paidDate) {
         insertData.paid_date = invoice.paidDate;
       }
@@ -1420,13 +1438,12 @@ export class DataService {
         .select()
         .single();
       
-      // Si erreur liée à une colonne inexistante, essayer sans les colonnes optionnelles
+      // Si erreur liée à une colonne inexistante, réinsérer sans champs optionnels (évite les essais `number` / colonnes absentes → bruit 400).
       if (error && (error.message?.includes('column') || error.code === 'PGRST116' || error.code === '42703')) {
         console.log('⚠️ DataService.createInvoice - Erreur colonne, essai sans colonnes optionnelles');
         console.log('⚠️ Erreur:', error.message);
-        
-        // Créer un objet minimal avec seulement les colonnes obligatoires
-        const minimalData: any = {
+
+        const minimalData: Record<string, unknown> = {
           invoice_number: insertData.invoice_number,
           client_name: insertData.client_name,
           amount: insertData.amount,
@@ -1434,21 +1451,11 @@ export class DataService {
           due_date: insertData.due_date,
           user_id: insertData.user_id,
           created_by: insertData.created_by,
-          created_by_name: insertData.created_by_name
         };
-        
-        // Si ça échoue encore, essayer avec 'number' au lieu de 'invoice_number'
-        const retryResult = await supabase
-          .from('invoices')
-          .insert({
-            ...minimalData,
-            number: minimalData.invoice_number
-          } as any)
-          .select()
-          .single();
-        
+
+        const retryResult = await supabase.from('invoices').insert(minimalData).select().single();
+
         if (!retryResult.error) {
-          // Si ça marche avec 'number'
           data = retryResult.data;
           error = null;
         } else {
@@ -1508,7 +1515,7 @@ export class DataService {
       if (updates.dueDate !== undefined) updateData.due_date = updates.dueDate;
       if (updates.paidDate !== undefined) updateData.paid_date = updates.paidDate;
       if (updates.paidAmount !== undefined) {
-        if (updates.paidAmount !== null && updates.paidAmount !== undefined && updates.paidAmount !== '') {
+        if (updates.paidAmount != null) {
           const paidAmount = Number(updates.paidAmount);
           if (!isNaN(paidAmount) && paidAmount > 0) {
             updateData.paid_amount = paidAmount;
@@ -1520,15 +1527,29 @@ export class DataService {
         }
       }
 
+      if (updates.vatAmount !== undefined) {
+        if (updates.vatAmount != null) {
+          const vat = Number(updates.vatAmount);
+          updateData.tax = !Number.isNaN(vat) ? vat : null;
+        } else {
+          updateData.tax = null;
+        }
+      }
+
+      if (updates.totalAmount !== undefined) {
+        if (updates.totalAmount != null) {
+          const tot = Number(updates.totalAmount);
+          updateData.total = !Number.isNaN(tot) ? tot : null;
+        } else {
+          updateData.total = null;
+        }
+      }
+
       const nextAmount =
         updates.amount !== undefined ? Number(updates.amount) || 0 : Number(existing?.amount) || 0;
       let nextPaid: number;
       if (updates.paidAmount !== undefined) {
-        if (
-          updates.paidAmount === null ||
-          updates.paidAmount === undefined ||
-          updates.paidAmount === ''
-        ) {
+        if (updates.paidAmount == null) {
           nextPaid = 0;
         } else {
           const n = Number(updates.paidAmount);
@@ -1555,7 +1576,7 @@ export class DataService {
         const currencyPayload = await this.buildCurrencyColumns(
           updates.amount ?? 0,
           (updates.currencyCode as CurrencyCode) || undefined,
-          updates.transactionDate || updates.date,
+          updates.transactionDate || updates.dueDate,
           (updates as any).manualExchangeRate || updates.exchangeRate || undefined
         );
         Object.assign(updateData, currencyPayload);
@@ -1749,7 +1770,7 @@ export class DataService {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, full_name, email')
         .eq('user_id', currentUser.id)
         .single();
 
@@ -1868,7 +1889,7 @@ export class DataService {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, full_name, email')
         .eq('user_id', currentUser.id)
         .single();
 
@@ -2005,7 +2026,7 @@ export class DataService {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, full_name, email')
         .eq('user_id', currentUser.id)
         .single();
 
@@ -2381,7 +2402,7 @@ export class DataService {
       console.log('✅ Profil trouvé pour time log:', { profileId: profile.id, userId: currentUser.id });
 
       // Convertir duration (minutes) en hours si nécessaire
-      const hours = timeLog.duration ? timeLog.duration / 60 : (timeLog.hours || 0);
+      const hours = timeLog.duration ? timeLog.duration / 60 : 0;
 
       // Fonction pour vérifier si une string est un UUID valide
       const isValidUUID = (str: string): boolean => {
@@ -2466,7 +2487,7 @@ export class DataService {
 
   static async updateTimeLog(id: string, updates: Partial<TimeLog>) {
     try {
-      const hours = updates.duration ? updates.duration / 60 : (updates.hours || 0);
+      const hours = updates.duration ? updates.duration / 60 : 0;
       
       const { data, error } = await supabase
         .from('time_logs')
@@ -4002,25 +4023,26 @@ export class DataService {
 
   // ===== COURSES =====
   static async getCourses() {
-    const courseSelect =
-      'id,title,description,instructor,instructor_id,duration,level,category,price,status,thumbnail_url,target_students,youtube_url,drive_url,other_links,requires_final_validation,sequential_modules,course_materials,programme_id,audience_segment,certification_enabled,certification_label,created_at,updated_at,rating,students_count,lessons_count,publish_workflow_status,submitted_for_review_at,reviewed_at,reviewed_by';
-    const courseSelectCompat =
-      'id,title,description,instructor,instructor_id,duration,level,category,price,status,thumbnail_url,target_students,youtube_url,drive_url,other_links,requires_final_validation,sequential_modules,course_materials,programme_id,created_at,updated_at,rating,students_count,lessons_count';
+    /** Noyau stable (indexes `courses` existants) — évite 400 si migrations LMS / programme pas appliquées. */
+    const courseSelectBase =
+      'id,title,description,instructor,instructor_id,duration,level,category,price,status,thumbnail_url,target_students,youtube_url,drive_url,other_links,requires_final_validation,sequential_modules,course_materials,created_at,updated_at,rating,students_count,lessons_count';
+    const courseSelectProgramme = `${courseSelectBase},programme_id,audience_segment`;
+    const courseSelectLmsExtended =
+      `${courseSelectProgramme},certification_enabled,certification_label,publish_workflow_status,submitted_for_review_at,reviewed_at,reviewed_by`;
 
-    let result = await ApiHelper.get('courses', {
-      select: courseSelect,
-      order: 'created_at.desc',
-    });
-    if (result.error && isLikelyPostgrestSelectError(result.error)) {
-      result = await ApiHelper.get('courses', {
-        select: courseSelectCompat,
-        order: 'created_at.desc',
-      });
+    const selectVariants = [courseSelectBase, courseSelectProgramme, courseSelectLmsExtended, '*'];
+
+    for (const select of selectVariants) {
+      const result = await ApiHelper.get('courses', { select, order: 'created_at.desc' });
+      if (!result.error) return result;
+      if (!isLikelyPostgrestSelectError(result.error)) {
+        // Erreur métier / réseau : ne pas tenter d’autres variantes.
+        return result;
+      }
     }
-    if (result.error && isLikelyPostgrestSelectError(result.error)) {
-      result = await ApiHelper.get('courses', { select: '*', order: 'created_at.desc' });
-    }
-    return result;
+
+    // Dernier recours : renvoyer la dernière erreur si toutes les variantes échouent.
+    return { data: null, error: new Error('Unable to fetch courses with any select variant') };
   }
 
   static async createCourse(course: Partial<Course>) {
@@ -4187,15 +4209,56 @@ export class DataService {
       // Ignorer les champs calculés : modules, completedLessons, progress
       // Ces champs ne sont pas stockés dans la table courses
 
-      console.log('🔄 Mise à jour course avec data:', updateData);
+      const courseUpdateAllowed = new Set([
+        'updated_at',
+        'title',
+        'description',
+        'instructor',
+        'instructor_id',
+        'duration',
+        'level',
+        'category',
+        'price',
+        'status',
+        'thumbnail_url',
+        'target_students',
+        'youtube_url',
+        'drive_url',
+        'other_links',
+        'requires_final_validation',
+        'sequential_modules',
+        'course_materials',
+        'programme_id',
+        'audience_segment',
+        'publish_workflow_status',
+        'submitted_for_review_at',
+        'reviewed_at',
+        'reviewed_by',
+        'certification_enabled',
+        'certification_label',
+      ]);
+      const patch = Object.fromEntries(
+        Object.entries(updateData).filter(([k]) => courseUpdateAllowed.has(k)),
+      );
 
-      const { data, error } = await supabase
-        .from('courses')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-      
+      console.log('🔄 Mise à jour course avec data:', patch);
+
+      const courseUpdateReturnSelects = [
+        'id,title,description,instructor,instructor_id,duration,level,category,price,status,thumbnail_url,target_students,youtube_url,drive_url,other_links,requires_final_validation,sequential_modules,course_materials,programme_id,audience_segment,certification_enabled,certification_label,publish_workflow_status,submitted_for_review_at,reviewed_at,reviewed_by,rating,students_count,lessons_count,created_at,updated_at',
+        'id,title,description,instructor,instructor_id,duration,level,category,price,status,thumbnail_url,target_students,youtube_url,drive_url,other_links,requires_final_validation,sequential_modules,course_materials,created_at,updated_at,rating,students_count,lessons_count',
+        'id,title,description,instructor,instructor_id,duration,level,category,price,status,created_at,updated_at',
+      ];
+
+      let data: any = null;
+      let error: any = null;
+      for (const sel of courseUpdateReturnSelects) {
+        const res = await supabase.from('courses').update(patch).eq('id', id).select(sel).single();
+        data = res.data;
+        error = res.error;
+        if (!error) break;
+        if (!isLikelyPostgrestSelectError(error)) break;
+      }
+
       if (error) {
         console.error('❌ Erreur lors de la mise à jour:', error);
         throw error;
@@ -4409,81 +4472,95 @@ export class DataService {
   // Fonction pour charger les modules et leçons d'un cours
   static async getCourseModules(courseId: string) {
     try {
-      const { data, error } = await supabase
-        .from('course_modules')
-        .select(`
-          id,
-          title,
-          order_index,
-          requires_validation,
-          unlocks_next_module,
-          evidence_documents,
-          lessons:course_lessons(
-            id,
-            title,
-            type,
-            duration,
-            description,
-            content_url,
-            attachments,
-            external_links,
-            quiz,
-            order_index
-          )
-        `)
-        .eq('course_id', courseId)
-        .order('order_index');
-      
+      const { data, error } = await this.getCourseModulesForCourseIds([courseId]);
       if (error) throw error;
-      return { data, error: null };
+      return { data: data || [], error: null };
     } catch (error) {
-      console.error('❌ Erreur récupération modules:', error);
       return { data: null, error };
     }
   }
 
-  /** Modules + leçons pour plusieurs cours en une requête (évite N+1 au chargement LMS). */
+  /** Modules + leçons pour plusieurs cours — requêtes plates (pas d’embed PostgREST) pour éviter 400 selon schéma. */
   static async getCourseModulesForCourseIds(courseIds: string[]) {
     try {
       if (!courseIds.length) return { data: [] as any[], error: null };
 
-      const { data, error } = await supabase
-        .from('course_modules')
-        .select(
-          `
-          id,
-          course_id,
-          title,
-          order_index,
-          requires_validation,
-          unlocks_next_module,
-          evidence_documents,
-          lessons:course_lessons(
-            id,
-            title,
-            type,
-            duration,
-            description,
-            content_url,
-            attachments,
-            external_links,
-            quiz,
-            order_index
-          )
-        `,
-        )
-        .in('course_id', courseIds)
-        .order('order_index');
+      const moduleSelectVariants = [
+        'id,course_id,title,order_index,requires_validation,unlocks_next_module,evidence_documents',
+        'id,course_id,title,order_index',
+      ];
 
-      if (error) throw error;
-      const rows = data || [];
-      for (const m of rows as any[]) {
-        const lessons = Array.isArray(m.lessons) ? m.lessons : [];
-        lessons.sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0));
+      let modules: any[] = [];
+      let lastModuleError: any = null;
+      for (const sel of moduleSelectVariants) {
+        const { data, error } = await supabase
+          .from('course_modules')
+          .select(sel)
+          .in('course_id', courseIds)
+          .order('order_index');
+        if (!error) {
+          modules = data || [];
+          lastModuleError = null;
+          break;
+        }
+        lastModuleError = error;
+        if (!isLikelyPostgrestSelectError(error)) {
+          if (isMissingTableError(error, 'course_modules')) {
+            return { data: [] as any[], error: null };
+          }
+          return { data: null, error };
+        }
       }
+      if (lastModuleError) {
+        return { data: null, error: lastModuleError };
+      }
+
+      const moduleIds = modules.map((m) => m.id).filter(Boolean);
+      const lessonsByModuleId = new Map<string, any[]>();
+
+      if (moduleIds.length) {
+        const lessonSelectVariants = [
+          'id,module_id,title,type,duration,description,content_url,attachments,external_links,quiz,order_index',
+          'id,module_id,title,type,duration,description,content_url,order_index',
+          'id,module_id,title,type,duration,order_index',
+        ];
+
+        let flatLessons: any[] = [];
+        for (const lsel of lessonSelectVariants) {
+          const { data, error } = await supabase
+            .from('course_lessons')
+            .select(lsel)
+            .in('module_id', moduleIds)
+            .order('order_index');
+          if (!error) {
+            flatLessons = data || [];
+            break;
+          }
+          if (!isLikelyPostgrestSelectError(error)) {
+            if (isMissingTableError(error, 'course_lessons')) {
+              flatLessons = [];
+              break;
+            }
+            return { data: null, error };
+          }
+        }
+
+        for (const ls of flatLessons) {
+          const mid = String(ls.module_id);
+          if (!lessonsByModuleId.has(mid)) lessonsByModuleId.set(mid, []);
+          lessonsByModuleId.get(mid)!.push(ls);
+        }
+      }
+
+      const rows = modules.map((m) => {
+        const lessons = [...(lessonsByModuleId.get(String(m.id)) || [])].sort(
+          (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0),
+        );
+        return { ...m, lessons };
+      });
+
       return { data: rows, error: null };
     } catch (error) {
-      console.error('❌ Erreur récupération modules (batch cours):', error);
       return { data: null, error };
     }
   }

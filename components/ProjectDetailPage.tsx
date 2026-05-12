@@ -369,7 +369,7 @@ const ProjectObjectWorkspace: React.FC<ProjectObjectWorkspaceProps> = ({
             actorId: currentUser?.id != null ? String(currentUser.id) : null,
             canGovernTasks,
         });
-        if (!result.ok) {
+        if (result.ok === false) {
             if (!result.silent && (result.errorFr || result.errorEn)) {
                 alert(isFr ? result.errorFr : result.errorEn);
             }
@@ -506,7 +506,7 @@ const ProjectObjectWorkspace: React.FC<ProjectObjectWorkspaceProps> = ({
         const updates: Partial<Task> = { status: targetStatus };
         if (targetStatus === 'Completed') {
             updates.completedAt = new Date().toISOString();
-            updates.completedById = currentUser?.id;
+            updates.completedById = currentUser?.id != null ? String(currentUser.id) : undefined;
             updates.isFrozen = false;
         }
         handleUpdateTask(kanbanDraggingTaskId, updates);
@@ -1664,7 +1664,7 @@ const ProjectObjectWorkspace: React.FC<ProjectObjectWorkspaceProps> = ({
                             const updates: Partial<Task> = { status: newStatus };
                             if (newStatus === 'Completed') {
                                 updates.completedAt = new Date().toISOString();
-                                updates.completedById = currentUser?.id;
+                                updates.completedById = currentUser?.id != null ? String(currentUser.id) : undefined;
                                 updates.isFrozen = false;
                             }
                             handleUpdateTask(task.id, updates);
@@ -2915,7 +2915,7 @@ const ProjectObjectWorkspace: React.FC<ProjectObjectWorkspaceProps> = ({
                                                     </li>
                                                 ))}
                                             </ul>
-                                                )}
+                                        )}
                                             </>
                                         )}
                                     </div>
@@ -2929,29 +2929,29 @@ const ProjectObjectWorkspace: React.FC<ProjectObjectWorkspaceProps> = ({
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                                             <div className="rounded-lg border border-slate-200 bg-white p-3">
                                                 <p className="text-xs text-slate-500">Total prévu</p>
-                                                <p className="text-lg font-semibold text-slate-900">{budgetPlannedTotal.toLocaleString()} {currentProject.budgetCurrency || 'XOF'}</p>
+                                                <p className="text-lg font-semibold text-slate-900">{cockpit.budgetPlannedTotal.toLocaleString()} {currentProject.budgetCurrency || 'XOF'}</p>
                                             </div>
                                             <div className="rounded-lg border border-slate-200 bg-white p-3">
                                                 <p className="text-xs text-slate-500">Total réel</p>
-                                                <p className="text-lg font-semibold text-slate-900">{budgetRealTotal.toLocaleString()} {currentProject.budgetCurrency || 'XOF'}</p>
+                                                <p className="text-lg font-semibold text-slate-900">{cockpit.budgetRealTotal.toLocaleString()} {currentProject.budgetCurrency || 'XOF'}</p>
                                             </div>
                                             <div className="rounded-lg border border-slate-200 bg-white p-3">
                                                 <p className="text-xs text-slate-500">Variance</p>
-                                                <p className={`text-lg font-semibold ${budgetVariance >= 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                                                    {budgetVariance >= 0 ? '+' : ''}{budgetVariance.toLocaleString()} ({budgetVariancePercent.toFixed(1)}%)
+                                                <p className={`text-lg font-semibold ${cockpit.budgetVariance >= 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                                    {cockpit.budgetVariance >= 0 ? '+' : ''}{cockpit.budgetVariance.toLocaleString()} ({cockpit.budgetVariancePercent.toFixed(1)}%)
                                                 </p>
                                             </div>
                                             <div className="rounded-lg border border-slate-200 bg-white p-3">
                                                 <p className="text-xs text-slate-500">Alerte budget</p>
                                                 <p className={`text-sm font-semibold ${
-                                                    budgetAlertLevel === 'critical' ? 'text-red-700' :
-                                                    budgetAlertLevel === 'warning' ? 'text-amber-700' :
-                                                    budgetAlertLevel === 'under' ? 'text-emerald-700' :
+                                                    cockpit.budgetAlertLevel === 'critical' ? 'text-red-700' :
+                                                    cockpit.budgetAlertLevel === 'warning' ? 'text-amber-700' :
+                                                    cockpit.budgetAlertLevel === 'under' ? 'text-emerald-700' :
                                                     'text-slate-700'
                                                 }`}>
-                                                    {budgetAlertLevel === 'critical' ? 'Critique (>= 15%)' :
-                                                     budgetAlertLevel === 'warning' ? 'Surveillance (>= 8%)' :
-                                                     budgetAlertLevel === 'under' ? 'Sous consommation' : 'Sous contrôle'}
+                                                    {cockpit.budgetAlertLevel === 'critical' ? 'Critique (>= 15%)' :
+                                                     cockpit.budgetAlertLevel === 'warning' ? 'Surveillance (>= 8%)' :
+                                                     cockpit.budgetAlertLevel === 'under' ? 'Sous consommation' : 'Sous contrôle'}
                                                 </p>
                                             </div>
                                         </div>
@@ -3347,6 +3347,5 @@ const ProjectObjectWorkspace: React.FC<ProjectObjectWorkspaceProps> = ({
 
 export default ProjectObjectWorkspace;
 export { ProjectObjectWorkspace, ProjectObjectWorkspace as ProjectDetailPage };
-export type { ProjectObjectWorkspaceProps };
 export type { ProjectWorkspaceTab } from './project/workspace/types';
 

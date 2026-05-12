@@ -1,6 +1,14 @@
 import type { Contact } from '../types';
 
-/** Événements émis vers des intégrations externes (autres applis web, automatisations). */
+/**
+ * Événements émis vers des intégrations externes (autres applis web, automatisations).
+ *
+ * Nouveaux kinds (rétrocompatibles) :
+ * - `interaction.logged` : trace `contact_interactions` (champs optionnels `version`, `metadata`).
+ * - `follow_up.scheduled` : relance avec `follow_up_at` renseigné (émit en plus de `interaction.logged` si date présente).
+ * - `dossier.item.created` : entrée `contact_dossier_items` (ex. journal contact CRM).
+ * Les consommateurs historiques peuvent ignorer les kinds inconnus ; préférer `metadata` pour extensions.
+ */
 export type CrmOutboundEvent =
   | {
       kind: 'contact.created';
@@ -27,6 +35,37 @@ export type CrmOutboundEvent =
       contactId?: string | null;
       summary: string;
       payload?: Record<string, unknown>;
+    }
+  | {
+      kind: 'interaction.logged';
+      version?: number;
+      organizationId: string;
+      contactId: string;
+      interactionId: string;
+      actionType: string;
+      followUpAt?: string | null;
+      createdBy?: string | null;
+      summarySnippet?: string | null;
+      metadata?: Record<string, unknown>;
+    }
+  | {
+      kind: 'follow_up.scheduled';
+      version?: number;
+      organizationId: string;
+      contactId: string;
+      interactionId: string;
+      followUpAt: string;
+      createdBy?: string | null;
+      summarySnippet?: string | null;
+      metadata?: Record<string, unknown>;
+    }
+  | {
+      kind: 'dossier.item.created';
+      version?: number;
+      organizationId: string;
+      contactId: string;
+      dossierItemId?: string | null;
+      metadata?: Record<string, unknown>;
     };
 
 export type CrmOutboundHandler = (event: CrmOutboundEvent) => void;

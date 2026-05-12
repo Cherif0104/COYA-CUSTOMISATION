@@ -15,7 +15,9 @@ export const NAV_SESSION_COLLECTE_PRESET_PROGRAMME_ID = 'coya_nav_collecte_prese
 export const NAV_SESSION_COLLECTE_PRESET_FORMATION_ID = 'coya_nav_collecte_preset_formation_id';
 /** sessionStorage : au montage du CRM, ouvrir l’onglet Collecte (1 = oui). */
 export const NAV_SESSION_CRM_OPEN_COLLECTE_TAB = 'coya_nav_crm_open_collecte_tab';
-/** sessionStorage : sous-vue Formation (`overview` | `cohortes` | …) — consommé au montage de `FormationHub`. */
+/** sessionStorage : sous-vue APEX (`overview` | `catalog` | …) — consommé au montage de `ApexModuleShell`. */
+export const NAV_SESSION_APEX_SECTION = 'coya_nav_apex_section';
+/** @deprecated Utiliser `NAV_SESSION_APEX_SECTION` — conservé pour migration session une fois. */
 export const NAV_SESSION_FORMATION_SECTION = 'coya_nav_formation_section';
 /** sessionStorage : préremplir la campagne (id collecte) dans la zone soumissions → CRM. */
 export const NAV_SESSION_COLLECTE_PRESET_COLLECTION_ID = 'coya_nav_collecte_preset_collection_id';

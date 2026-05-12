@@ -401,6 +401,31 @@ export interface LearningCertificate {
   updatedAt?: string;
 }
 
+/**
+ * Accès apprenant invité (fenêtre temporelle) — persisté dans `apex_temporary_access`
+ * avec jeton hashé et fenêtre de validité.
+ */
+export interface ApexTemporaryLearnerAccess {
+  id: string;
+  courseId: string;
+  email: string;
+  validFrom: string;
+  validUntil: string;
+  accessToken?: string | null;
+  linkedProfileId?: string | null;
+   /** Lien direct `/apex/access?token=…` (renvoyé uniquement à la création côté UI). */
+  magicLink?: string | null;
+  revokedAt?: string | null;
+  createdAt?: string | null;
+}
+
+/** Gabarit certificat APEX (JSON — génération PDF via service à brancher). */
+export interface ApexCertificateTemplate {
+  id: string;
+  name: string;
+  body: Record<string, unknown>;
+}
+
 export interface Module {
   id: string;
   title: string;
@@ -585,19 +610,30 @@ export interface ProjectBudgetLine {
 
 export type ProjectStatus = 'Not Started' | 'In Progress' | 'Completed' | 'On Hold' | 'Cancelled';
 
+/** Priorité projet (interface projets) – distincte de la priorité de tâche. */
+export type ProjectPriority = 'low' | 'medium' | 'high' | 'urgent';
+
 export interface Project {
   id: string;
   title: string;
   description: string;
   status: ProjectStatus;
+  /** Priorité métier (mapping vers colonnes `projects.priority`). */
+  priority?: ProjectPriority;
   dueDate: string;
   startDate?: string;
+  /** Budget agrégé (champ simple côté projets, pour écrans synthèse). */
+  budget?: number | null;
+  /** Nom client / partenaire associé au projet. */
+  clientName?: string | null;
   team: User[];
   tasks: Task[];
   risks: Risk[];
   teamMemberIds?: string[];
   createdById?: string;
   createdByName?: string;
+  createdAt?: string;
+  updatedAt?: string;
   /** Budget prévisionnel et lignes (Phase 2) */
   budgetPlanned?: number;
   budgetCurrency?: CurrencyCode;
@@ -956,6 +992,19 @@ export interface JournalEntryLine {
   updatedAt?: string;
   accountCode?: string;
   accountLabel?: string;
+  /**
+   * Dimensions analytiques transverses (Phase 4+) :
+   * rattachements optionnels vers les autres modules COYA.
+   * Stockage côté base : colonnes dédiées ou JSON selon migrations ultérieures.
+   */
+  projectId?: string | null;
+  programmeId?: string | null;
+  activityId?: string | null;
+  vehicleRequestId?: string | null;
+  /** Référence canonique WorkItem (tâche/activité/etc.) – voir WorkItemCanonicalRef. */
+  workItemRef?: WorkItemCanonicalRef | null;
+  /** Métadonnées libres pour passer des informations de rapprochement métier. */
+  metadata?: Record<string, unknown> | null;
 }
 
 /** Centre de coûts (comptabilité analytique) */
@@ -980,8 +1029,8 @@ export interface FiscalRule {
   updatedAt?: string;
 }
 
-/** Budget (prévisionnel par exercice) */
-export interface Budget {
+/** Budget (prévisionnel par exercice, module Comptabilité) */
+export interface AccountingBudget {
   id: string;
   organizationId: string;
   name: string;
@@ -991,8 +1040,8 @@ export interface Budget {
   updatedAt?: string;
 }
 
-/** Ligne de budget (compte + centre optionnel + montant) */
-export interface BudgetLine {
+/** Ligne de budget (compte + centre optionnel + montant) – Comptabilité */
+export interface AccountingBudgetLine {
   id: string;
   budgetId: string;
   accountId: string;
@@ -1007,6 +1056,20 @@ export interface OrganizationAccountingSettings {
   id: string;
   organizationId: string;
   accountingFramework: AccountingFramework;
+  /**
+   * Configuration optionnelle du pont factures/dépenses → comptabilité.
+   * Persistée en JSONB dans `organization_accounting_settings.bridge_config`.
+   */
+  bridgeConfig?: {
+    /** Compte client (classe 41…) pour les factures clients. */
+    invoiceReceivableAccountId?: string | null;
+    /** Compte de produits (classe 70…) pour les factures clients. */
+    invoiceRevenueAccountId?: string | null;
+    /** Compte de TVA collectée (classe 44…) pour les factures clients. */
+    invoiceVatAccountId?: string | null;
+    /** Journal de ventes à utiliser pour le pont factures. */
+    invoiceJournalId?: string | null;
+  };
   createdAt?: string;
   updatedAt?: string;
 }
@@ -1718,6 +1781,16 @@ export interface Invoice {
   invoiceNumber: string;
   clientName: string;
   amount: number;
+  /**
+   * Montant de TVA (si connu côté facture). Utilisé pour générer une écriture 3 lignes
+   * (client TTC, produit HT, TVA collectée) dans le pont comptable.
+   */
+  vatAmount?: number;
+  /**
+   * Montant total TTC (si différent de `amount`).
+   * Si présent avec `vatAmount`, permet de dériver la base HT.
+   */
+  totalAmount?: number;
   currencyCode?: CurrencyCode;
   exchangeRate?: number;
   baseAmountUSD?: number;

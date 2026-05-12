@@ -1,5 +1,6 @@
 import { supabase } from './supabaseService';
 import type { Contact } from '../types';
+import { dispatchCrmOutboundEvent } from './crmIntegrationHub';
 
 export type ContactDossierKind = 'timeline' | 'note' | 'link' | 'file';
 
@@ -45,19 +46,23 @@ export async function insertContactDossierItem(params: {
   body?: string | null;
   metadata?: Record<string, unknown>;
   createdByUserId?: string | null;
-}): Promise<{ error: Error | null }> {
+}): Promise<{ error: Error | null; id?: string | null }> {
   try {
-    const { error } = await supabase.from('contact_dossier_items').insert({
-      organization_id: params.organizationId,
-      contact_id: params.contactId,
-      kind: params.kind,
-      title: params.title ?? null,
-      body: params.body ?? null,
-      metadata: params.metadata ?? {},
-      created_by: params.createdByUserId ?? null,
-    });
+    const { data, error } = await supabase
+      .from('contact_dossier_items')
+      .insert({
+        organization_id: params.organizationId,
+        contact_id: params.contactId,
+        kind: params.kind,
+        title: params.title ?? null,
+        body: params.body ?? null,
+        metadata: params.metadata ?? {},
+        created_by: params.createdByUserId ?? null,
+      })
+      .select('id')
+      .single();
     if (error) return { error: new Error(error.message) };
-    return { error: null };
+    return { error: null, id: data?.id != null ? String(data.id) : null };
   } catch (e) {
     return { error: e instanceof Error ? e : new Error(String(e)) };
   }
@@ -104,7 +109,7 @@ export async function logContactDossierFromCrm(
       workEmail: previous.workEmail,
     };
   }
-  const { error } = await insertContactDossierItem({
+  const { error, id: dossierItemId } = await insertContactDossierItem({
     organizationId: orgId,
     contactId: String(contact.id),
     kind: 'timeline',
@@ -114,6 +119,20 @@ export async function logContactDossierFromCrm(
     createdByUserId: authUserId,
   });
   if (error) console.warn('[contactDossierService]', error.message);
+  else if (dossierItemId) {
+    dispatchCrmOutboundEvent({
+      kind: 'dossier.item.created',
+      version: 1,
+      organizationId: orgId,
+      contactId: String(contact.id),
+      dossierItemId,
+      metadata: {
+        source: 'crm_contact_journal',
+        crm_event: metadata.event,
+        title,
+      },
+    });
+  }
 }
 
 function summarizeContactDiff(before: Contact, after: Contact): string {

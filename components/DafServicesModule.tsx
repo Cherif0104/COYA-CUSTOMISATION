@@ -9,6 +9,7 @@ import {
   DafRequestStatus,
 } from '../services/dafService';
 import DafRequestDetailModal from './DafRequestDetailModal';
+import ModuleRichHub from './common/ModuleRichHub';
 
 const CATEGORIES: { id: DafRequestCategory; labelFr: string }[] = [
   { id: 'supplies', labelFr: 'Fournitures' },
@@ -123,7 +124,7 @@ const DafServicesModule: React.FC = () => {
 
   const kpis = useMemo(() => {
     const total = visibleRequests.length;
-    const inProgress = visibleRequests.filter((r) => r.status === 'in_progress').length;
+    const inProgress = visibleRequests.filter((r) => r.status === 'in_review').length;
     const pending = visibleRequests.filter((r) => r.status === 'submitted').length;
     const rejected = visibleRequests.filter((r) => r.status === 'rejected').length;
     return [
@@ -139,7 +140,7 @@ const DafServicesModule: React.FC = () => {
     const cls =
       s === 'approved'
         ? 'bg-green-100 text-green-700'
-        : s === 'in_progress'
+        : s === 'in_review'
           ? 'bg-blue-100 text-blue-700'
           : s === 'submitted'
             ? 'bg-amber-100 text-amber-700'
@@ -165,6 +166,36 @@ const DafServicesModule: React.FC = () => {
           {t('daf_new_request') || 'Nouvelle Intervention'}
         </button>
       </div>
+
+      <ModuleRichHub
+        isFr={language === Language.FR}
+        excludeViews={['daf_services']}
+        metrics={kpis.map((k) => ({
+          labelFr: k.label,
+          labelEn: k.label,
+          value: String(k.value),
+          hintFr: 'Indicateur interventions',
+          hintEn: 'Interventions KPI',
+        }))}
+        sections={[
+          {
+            key: 'daf',
+            titleFr: 'Moyens généraux & chaîne de service',
+            titleEn: 'General services & service chain',
+            icon: 'fas fa-clipboard-check',
+            bulletsFr: [
+              'Logistique pour le stock matériel détaillé ; DAF pour les demandes transverses.',
+              'Parc Auto pour les déplacements ; Ticket IT pour le numérique.',
+              'Collecte pour les besoins terrain remontés vers le CRM.',
+            ],
+            bulletsEn: [
+              'Logistics for detailed stock; DAF for cross-cutting requests.',
+              'Fleet for travel; IT tickets for digital issues.',
+              'Collecte for field needs surfaced to CRM.',
+            ],
+          },
+        ]}
+      />
 
       {errorMsg && (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{errorMsg}</div>

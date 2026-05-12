@@ -155,7 +155,7 @@ export class NotificationHelper {
           updater.profileId,
           'success',
           'invoice',
-          'paid',
+          'updated',
           'Facture payée',
           `La facture ${invoice.invoiceNumber} a été marquée comme payée`,
           {
@@ -200,7 +200,8 @@ export class NotificationHelper {
             entityTitle: `Demande de congé`,
             metadata: {
               leave_request_id: leaveRequest.id,
-              leave_type: leaveRequest.leaveType,
+              leave_type_id: leaveRequest.leaveTypeId,
+              leave_type_name: leaveRequest.leaveTypeName,
               start_date: leaveRequest.startDate,
               end_date: leaveRequest.endDate,
               reviewer_id: reviewer.profileId

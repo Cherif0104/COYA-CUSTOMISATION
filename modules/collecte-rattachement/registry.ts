@@ -12,7 +12,7 @@ export interface CollecteCategoryMeta {
 const BUILTIN_META: CollecteCategoryMeta[] = [
   { key: 'project', labelFr: 'Projet', labelEn: 'Project', builtin: true },
   { key: 'programme', labelFr: 'Programme', labelEn: 'Programme', builtin: true },
-  { key: 'formation', labelFr: 'Formation (cours)', labelEn: 'Course', builtin: true },
+  { key: 'formation', labelFr: 'Cours (APEX)', labelEn: 'Course (APEX)', builtin: true },
 ];
 
 export function listCollecteCategories(orgId: string | null | undefined): CollecteCategoryMeta[] {

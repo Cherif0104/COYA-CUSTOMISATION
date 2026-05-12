@@ -1,5 +1,36 @@
 import { supabase } from './supabaseService';
 import type { Contact, CrmContactLifecycleStatus } from '../types';
+import { dispatchCrmOutboundEvent } from './crmIntegrationHub';
+import { createCrmInteraction, type CrmInteractionChannel } from './crmActivityService';
+
+export const CRM_INTERACTIONS_CHANGED_EVENT = 'coya-crm-interactions-changed';
+
+function mapActionTypeToCrmChannel(action: ContactInteractionActionType): CrmInteractionChannel {
+  switch (action) {
+    case 'email_sent':
+      return 'email';
+    case 'phone_call':
+      return 'phone';
+    case 'whatsapp':
+      return 'whatsapp';
+    case 'meeting':
+      return 'meeting';
+    default:
+      return 'note';
+  }
+}
+
+function buildInteractionSummarySnippet(
+  motif: string | null,
+  detail: string | null,
+  actionType: ContactInteractionActionType,
+): string {
+  const m = (motif || '').trim();
+  const d = (detail || '').trim();
+  const base = m || actionType;
+  if (!d || d === m) return base.slice(0, 280);
+  return `${base} — ${d}`.slice(0, 280);
+}
 
 export type ContactInteractionActionType =
   | 'follow_up'
@@ -108,7 +139,7 @@ export async function insertContactInteraction(params: {
   statusUpdatedTo: CrmContactLifecycleStatus | null;
   createdByUserId: string | null;
   followUpAt?: string | null;
-}): Promise<{ error: Error | null }> {
+}): Promise<{ error: Error | null; interactionId?: string | null }> {
   if (!isUuidContactId(params.contactId)) {
     return { error: new Error('CONTACT_NOT_SYNCED') };
   }
@@ -119,19 +150,78 @@ export async function insertContactInteraction(params: {
       params.followUpAt && String(params.followUpAt).trim()
         ? new Date(params.followUpAt as string).toISOString()
         : null;
-    const { error } = await supabase.from('contact_interactions').insert({
-      organization_id: params.organizationId,
-      contact_id: params.contactId,
-      action_type: params.actionType,
-      motif: params.motif?.trim() || null,
-      status_snapshot: statusSnapshot,
-      status_updated_to: statusUpdatedToDb,
-      detail: params.detail?.trim() || null,
-      follow_up_at: followIso,
-      created_by: params.createdByUserId ?? null,
-    });
+    const { data, error } = await supabase
+      .from('contact_interactions')
+      .insert({
+        organization_id: params.organizationId,
+        contact_id: params.contactId,
+        action_type: params.actionType,
+        motif: params.motif?.trim() || null,
+        status_snapshot: statusSnapshot,
+        status_updated_to: statusUpdatedToDb,
+        detail: params.detail?.trim() || null,
+        follow_up_at: followIso,
+        created_by: params.createdByUserId ?? null,
+      })
+      .select('id')
+      .single();
     if (error) return { error: new Error(error.message) };
-    return { error: null };
+    const interactionId = data?.id != null ? String(data.id) : null;
+    const snippet = buildInteractionSummarySnippet(params.motif, params.detail, params.actionType);
+
+    if (interactionId) {
+      dispatchCrmOutboundEvent({
+        kind: 'interaction.logged',
+        version: 1,
+        organizationId: params.organizationId,
+        contactId: params.contactId,
+        interactionId,
+        actionType: params.actionType,
+        followUpAt: followIso,
+        createdBy: params.createdByUserId ?? null,
+        summarySnippet: snippet || null,
+        metadata: {
+          motif: params.motif ?? null,
+          status_updated_to: statusUpdatedToDb,
+        },
+      });
+      if (followIso) {
+        dispatchCrmOutboundEvent({
+          kind: 'follow_up.scheduled',
+          version: 1,
+          organizationId: params.organizationId,
+          contactId: params.contactId,
+          interactionId,
+          followUpAt: followIso,
+          createdBy: params.createdByUserId ?? null,
+          summarySnippet: snippet || null,
+          metadata: { actionType: params.actionType },
+        });
+      }
+
+      void createCrmInteraction({
+        contactId: params.contactId,
+        channel: mapActionTypeToCrmChannel(params.actionType),
+        summary: snippet.trim() ? snippet : params.actionType,
+        details: {
+          source: 'contact_interaction',
+          interaction_id: interactionId,
+          action_type: params.actionType,
+        },
+      });
+
+      try {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent(CRM_INTERACTIONS_CHANGED_EVENT, { detail: { contactId: params.contactId } }),
+          );
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    return { error: null, interactionId };
   } catch (e) {
     return { error: e instanceof Error ? e : new Error(String(e)) };
   }

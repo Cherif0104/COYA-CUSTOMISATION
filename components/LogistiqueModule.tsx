@@ -5,6 +5,7 @@ import * as logistiqueService from '../services/logistiqueService';
 import type { Equipment, EquipmentCategory, EquipmentRequest, SensitiveDisposalStatus } from '../services/logistiqueService';
 import OrganizationService from '../services/organizationService';
 import { useAuth } from '../contexts/AuthContextSupabase';
+import ModuleRichHub from './common/ModuleRichHub';
 
 /** Phase 4.2 – Logistique : équipements, demandes, workflow validation → mise à disposition */
 const LogistiqueModule: React.FC = () => {
@@ -215,6 +216,59 @@ const LogistiqueModule: React.FC = () => {
           </p>
         </div>
       </div>
+
+      <ModuleRichHub
+        isFr={isFr}
+        excludeViews={['logistique']}
+        metrics={[
+          {
+            labelFr: 'Équipements',
+            labelEn: 'Equipment',
+            value: String(equipments.length),
+            hintFr: 'Actifs suivis',
+            hintEn: 'Tracked assets',
+          },
+          {
+            labelFr: 'Demandes',
+            labelEn: 'Requests',
+            value: String(requests.length),
+            hintFr: 'Workflow validation → mise à disposition',
+            hintEn: 'Validation → allocation workflow',
+          },
+          {
+            labelFr: 'Catégories',
+            labelEn: 'Categories',
+            value: String(categories.length),
+            hintFr: 'Typologie interne',
+            hintEn: 'Internal taxonomy',
+          },
+          {
+            labelFr: 'Sensibles (actifs)',
+            labelEn: 'Sensitive (assets)',
+            value: String(equipments.filter((e) => e.sensitiveAsset).length),
+            hintFr: 'Rétention / destruction',
+            hintEn: 'Retention / disposal',
+          },
+        ]}
+        sections={[
+          {
+            key: 'log',
+            titleFr: 'Logistique & autres modules',
+            titleEn: 'Logistics & other modules',
+            icon: 'fas fa-boxes',
+            bulletsFr: [
+              'Parc Auto : véhicules et demandes de véhicule liées aux missions.',
+              'Moyens généraux : demandes matériel / locaux complémentaires.',
+              'Studio : équipements audiovisuels et réservations tournage.',
+            ],
+            bulletsEn: [
+              'Fleet: vehicles and vehicle requests tied to missions.',
+              'General services: complementary material / premises requests.',
+              'Studio: AV equipment and shoot bookings.',
+            ],
+          },
+        ]}
+      />
 
       <section className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6">
         <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">

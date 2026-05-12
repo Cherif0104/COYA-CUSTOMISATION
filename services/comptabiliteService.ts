@@ -1,4 +1,6 @@
 import { supabase } from './supabaseService';
+import AuditLogService from './auditLogService';
+import { handleOptionalTableError, isTableUnavailable } from './optionalTableGuard';
 import {
   ChartOfAccount,
   ChartAccountType,
@@ -12,13 +14,14 @@ import {
   AccountingFramework,
   CostCenter,
   FiscalRule,
-  Budget,
-  BudgetLine,
+  AccountingBudget,
+  AccountingBudgetLine,
   OrganizationAccountingSettings,
   JournalEntryAttachment,
   AccountingMatchingGroup,
   AccountingReconciliation,
   AccountingPeriodClosure,
+  WorkItemCanonicalRef,
 } from '../types';
 import { getGeneralAccountsTemplate } from './accountingTemplates';
 
@@ -119,6 +122,11 @@ function mapLine(r: any): JournalEntryLine {
     sequence: r.sequence ?? 0,
     costCenterId: r.cost_center_id ?? null,
     fiscalCode: r.fiscal_code ?? null,
+    projectId: r.project_id ?? null,
+    programmeId: r.programme_id ?? null,
+    activityId: r.activity_id ?? null,
+    vehicleRequestId: r.vehicle_request_id ?? null,
+    metadata: (r.metadata as Record<string, unknown> | null) ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     accountCode: r.chart_of_accounts?.code,
@@ -192,6 +200,7 @@ export async function getOrganizationAccountingSettings(organizationId: string):
       id: data.id,
       organizationId: data.organization_id,
       accountingFramework: data.accounting_framework as AccountingFramework,
+      bridgeConfig: (data.bridge_config as OrganizationAccountingSettings['bridgeConfig']) ?? undefined,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     };
@@ -209,12 +218,74 @@ export async function setOrganizationAccountingFramework(
   if (existing) {
     const { data, error } = await supabase.from(ORG_SETTINGS).update(row).eq('id', existing.id).select().single();
     if (error) throw error;
-    return { id: data.id, organizationId: data.organization_id, accountingFramework: data.accounting_framework, createdAt: data.created_at, updatedAt: data.updated_at };
+    return {
+      id: data.id,
+      organizationId: data.organization_id,
+      accountingFramework: data.accounting_framework,
+      bridgeConfig: (data.bridge_config as OrganizationAccountingSettings['bridgeConfig']) ?? undefined,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
   } else {
     const { data, error } = await supabase.from(ORG_SETTINGS).insert(row).select().single();
     if (error) throw error;
-    return { id: data.id, organizationId: data.organization_id, accountingFramework: data.accounting_framework, createdAt: data.created_at, updatedAt: data.updated_at };
+    return {
+      id: data.id,
+      organizationId: data.organization_id,
+      accountingFramework: data.accounting_framework,
+      bridgeConfig: (data.bridge_config as OrganizationAccountingSettings['bridgeConfig']) ?? undefined,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
   }
+}
+
+/**
+ * Met à jour uniquement la configuration du pont factures/dépenses → comptabilité
+ * (colonne JSONB `bridge_config` sur `organization_accounting_settings`).
+ */
+export async function setOrganizationAccountingBridgeConfig(
+  organizationId: string,
+  bridgeConfig: OrganizationAccountingSettings['bridgeConfig'],
+): Promise<OrganizationAccountingSettings> {
+  const { data: existing, error: existingError } = await supabase
+    .from(ORG_SETTINGS)
+    .select('*')
+    .eq('organization_id', organizationId)
+    .maybeSingle();
+
+  if (existingError) {
+    throw existingError;
+  }
+
+  if (!existing) {
+    throw new Error(
+      'ORGANIZATION_ACCOUNTING_SETTINGS_MISSING: aucun cadre comptable trouvé pour cette organisation. Configurez le cadre dans les paramètres Comptabilité avant de définir le pont factures.',
+    );
+  }
+
+  const { data, error } = await supabase
+    .from(ORG_SETTINGS)
+    .update({
+      bridge_config: bridgeConfig ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', existing.id)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return {
+    id: data.id,
+    organizationId: data.organization_id,
+    accountingFramework: data.accounting_framework as AccountingFramework,
+    bridgeConfig: (data.bridge_config as OrganizationAccountingSettings['bridgeConfig']) ?? undefined,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
 }
 
 // ---------- Droits Comptabilité (audit P2) ----------
@@ -223,13 +294,19 @@ export async function getAccountingPermissions(
   userId?: string | null
 ): Promise<AccountingPermission[]> {
   try {
+    if (isTableUnavailable(ACCOUNTING_PERMISSIONS)) return [];
     let query = supabase
       .from(ACCOUNTING_PERMISSIONS)
       .select('*')
       .eq('organization_id', organizationId);
     if (userId) query = query.eq('user_id', userId);
     const { data, error } = await query.order('user_id');
-    if (error) return [];
+    if (error) {
+      if (handleOptionalTableError(error, ACCOUNTING_PERMISSIONS, 'comptabiliteService.getAccountingPermissions')) {
+        return [];
+      }
+      return [];
+    }
     return (data || []).map((r: any) => ({
       id: r.id,
       organizationId: r.organization_id,
@@ -248,12 +325,18 @@ export async function getAccountingPermissions(
 // ---------- Exercices fiscaux (audit P2) ----------
 export async function listFiscalYears(organizationId: string): Promise<FiscalYear[]> {
   try {
+    if (isTableUnavailable(FISCAL_YEARS)) return [];
     const { data, error } = await supabase
       .from(FISCAL_YEARS)
       .select('*')
       .eq('organization_id', organizationId)
       .order('date_start', { ascending: false });
-    if (error) return [];
+    if (error) {
+      if (handleOptionalTableError(error, FISCAL_YEARS, 'comptabiliteService.listFiscalYears')) {
+        return [];
+      }
+      return [];
+    }
     return (data || []).map((r: any) => ({
       id: r.id,
       organizationId: r.organization_id,
@@ -691,6 +774,12 @@ export async function createJournalEntry(params: {
     credit: number;
     costCenterId?: string | null;
     fiscalCode?: string | null;
+    projectId?: string | null;
+    programmeId?: string | null;
+    activityId?: string | null;
+    vehicleRequestId?: string | null;
+    workItemRef?: WorkItemCanonicalRef | null;
+    metadata?: Record<string, unknown> | null;
   }>;
 }): Promise<JournalEntry> {
   const row: Record<string, unknown> = {
@@ -725,7 +814,7 @@ export async function createJournalEntry(params: {
   }
   if (!entry) throw new Error('createJournalEntry: insertion échouée (colonnes manquantes)');
   if (params.lines.length > 0) {
-    const lineRows = params.lines.map((l, i) => ({
+    let lineRows = params.lines.map((l, i) => ({
       entry_id: entry.id,
       account_id: l.accountId,
       label: l.label ?? null,
@@ -734,9 +823,25 @@ export async function createJournalEntry(params: {
       sequence: i,
       cost_center_id: l.costCenterId ?? null,
       fiscal_code: l.fiscalCode ?? null,
+      project_id: l.projectId ?? null,
+      programme_id: l.programmeId ?? null,
+      activity_id: l.activityId ?? null,
+      vehicle_request_id: l.vehicleRequestId ?? null,
+      metadata: l.metadata ?? (l.workItemRef ? { workItemRef: l.workItemRef } : null),
     }));
-    const { error: linesErr } = await supabase.from(LINES).insert(lineRows);
-    if (linesErr) throw linesErr;
+    // Compat: certaines bases n'ont pas encore les colonnes analytiques / metadata.
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const { error: linesErr } = await supabase.from(LINES).insert(lineRows);
+      if (!linesErr) break;
+      const missing = getMissingColumnName(linesErr);
+      if (!missing) throw linesErr;
+      if (!(missing in (lineRows[0] ?? {}))) throw linesErr;
+      lineRows = lineRows.map((row) => {
+        const next = { ...row };
+        delete (next as any)[missing];
+        return next;
+      });
+    }
   }
   return mapEntry(entry);
 }
@@ -858,13 +963,19 @@ export async function listJournalEntryLines(entryId: string): Promise<JournalEnt
 // ---------- Centres de coûts (analytique) ----------
 export async function listCostCenters(organizationId: string): Promise<CostCenter[]> {
   try {
+    if (isTableUnavailable(COST_CENTERS)) return [];
     const { data, error } = await supabase
       .from(COST_CENTERS)
       .select('*')
       .eq('organization_id', organizationId)
       .eq('is_active', true)
       .order('code');
-    if (error) return [];
+    if (error) {
+      if (handleOptionalTableError(error, COST_CENTERS, 'comptabiliteService.listCostCenters')) {
+        return [];
+      }
+      return [];
+    }
     return (data || []).map((r: any) => ({
       id: r.id,
       organizationId: r.organization_id,
@@ -930,7 +1041,7 @@ export async function createFiscalRule(params: { organizationId: string; code: s
 }
 
 // ---------- Budgets ----------
-export async function listBudgets(organizationId: string): Promise<Budget[]> {
+export async function listBudgets(organizationId: string): Promise<AccountingBudget[]> {
   try {
     const { data, error } = await supabase
       .from(BUDGETS)
@@ -938,7 +1049,7 @@ export async function listBudgets(organizationId: string): Promise<Budget[]> {
       .eq('organization_id', organizationId)
       .order('fiscal_year', { ascending: false });
     if (error) return [];
-    return (data || []).map((r: any) => ({
+    return (data || []).map((r: any): AccountingBudget => ({
       id: r.id,
       organizationId: r.organization_id,
       name: r.name,
@@ -952,17 +1063,27 @@ export async function listBudgets(organizationId: string): Promise<Budget[]> {
   }
 }
 
-export async function getBudget(id: string): Promise<Budget | null> {
+export async function getBudget(id: string): Promise<AccountingBudget | null> {
   try {
     const { data, error } = await supabase.from(BUDGETS).select('*').eq('id', id).maybeSingle();
     if (error) return null;
-    return data ? { id: data.id, organizationId: data.organization_id, name: data.name, fiscalYear: data.fiscal_year, isActive: data.is_active !== false, createdAt: data.created_at, updatedAt: data.updated_at } : null;
+    return data
+      ? {
+          id: data.id,
+          organizationId: data.organization_id,
+          name: data.name,
+          fiscalYear: data.fiscal_year,
+          isActive: data.is_active !== false,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+        }
+      : null;
   } catch {
     return null;
   }
 }
 
-export async function createBudget(params: { organizationId: string; name: string; fiscalYear: number }): Promise<Budget> {
+export async function createBudget(params: { organizationId: string; name: string; fiscalYear: number }): Promise<AccountingBudget> {
   const { data, error } = await supabase
     .from(BUDGETS)
     .insert({
@@ -974,10 +1095,20 @@ export async function createBudget(params: { organizationId: string; name: strin
     .select()
     .single();
   if (error) throw error;
-  return { id: data.id, organizationId: data.organization_id, name: data.name, fiscalYear: data.fiscal_year, isActive: true, createdAt: data.created_at, updatedAt: data.updated_at };
+  return {
+    id: data.id,
+    organizationId: data.organization_id,
+    name: data.name,
+    fiscalYear: data.fiscal_year,
+    isActive: true,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
 }
 
-export async function listBudgetLines(budgetId: string): Promise<(BudgetLine & { accountCode?: string; accountLabel?: string })[]> {
+export async function listBudgetLines(
+  budgetId: string,
+): Promise<(AccountingBudgetLine & { accountCode?: string; accountLabel?: string })[]> {
   try {
     const { data, error } = await supabase
       .from(BUDGET_LINES)
@@ -985,7 +1116,8 @@ export async function listBudgetLines(budgetId: string): Promise<(BudgetLine & {
       .eq('budget_id', budgetId)
       .order('id');
     if (error) return [];
-    return (data || []).map((r: any) => ({
+    return (data || []).map(
+      (r: any): AccountingBudgetLine & { accountCode?: string; accountLabel?: string } => ({
       id: r.id,
       budgetId: r.budget_id,
       accountId: r.account_id,
@@ -1327,4 +1459,161 @@ export async function getCashFlowStatement(
     periodMovement: closingCash - openingCash,
     details,
   };
+}
+
+// ---------- Façade moteur comptable (double-partie équilibrée) ----------
+
+export interface AccountingPostingContext {
+  organizationId: string;
+  journalId: string;
+  entryDate: string;
+  reference?: string | null;
+  description?: string | null;
+  documentNumber?: string | null;
+  attachmentType?: string | null;
+  attachmentUrl?: string | null;
+  attachmentStoragePath?: string | null;
+  resourceName?: string | null;
+  resourceDatabaseUrl?: string | null;
+  createdById?: string | null;
+  /**
+   * Statut cible après création.
+   * - 'draft' (défaut) : brouillon modifiable
+   * - 'validated' : validée (modification limitée)
+   * - 'locked' : écriture verrouillée (immutable, corrections via contre-passation)
+   */
+  status?: JournalEntryStatus;
+}
+
+export interface AccountingPostingLineInput {
+  accountId: string;
+  label?: string | null;
+  debit?: number;
+  credit?: number;
+  costCenterId?: string | null;
+  fiscalCode?: string | null;
+  projectId?: string | null;
+  programmeId?: string | null;
+  activityId?: string | null;
+  vehicleRequestId?: string | null;
+  workItemRef?: WorkItemCanonicalRef | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+/** Vérifie si une date d'écriture tombe dans une période clôturée. */
+async function assertPeriodNotClosed(organizationId: string, entryDate: string): Promise<void> {
+  const closures = await listPeriodClosures(organizationId);
+  if (!closures.length) return;
+  const date = entryDate;
+  const closed = closures.find(
+    (c) => c.status === 'closed' && c.periodStart <= date && date <= c.periodEnd,
+  );
+  if (closed) {
+    throw new Error(
+      'ACCOUNTING_PERIOD_CLOSED: cette date appartient à une période clôturée, créez une écriture d’ajustement sur une période ouverte.',
+    );
+  }
+}
+
+/**
+ * Façade unique pour poster une écriture double-partie équilibrée.
+ * - Valide la somme des débits/crédits (tolérance 0,01 FCFA).
+ * - Vérifie la non-clôture de la période.
+ * - Crée l’écriture en statut brouillon puis applique éventuellement le statut cible.
+ */
+export async function postBalancedJournalEntry(
+  ctx: AccountingPostingContext,
+  lines: AccountingPostingLineInput[],
+): Promise<JournalEntry> {
+  if (!lines.length) {
+    throw new Error('ACCOUNTING_NO_LINES: au moins une ligne est requise.');
+  }
+
+  await assertPeriodNotClosed(ctx.organizationId, ctx.entryDate);
+
+  let totalDebit = 0;
+  let totalCredit = 0;
+
+  const preparedLines: {
+    accountId: string;
+    label?: string | null;
+    debit: number;
+    credit: number;
+    costCenterId?: string | null;
+    fiscalCode?: string | null;
+    projectId?: string | null;
+    programmeId?: string | null;
+    activityId?: string | null;
+    vehicleRequestId?: string | null;
+    workItemRef?: WorkItemCanonicalRef | null;
+    metadata?: Record<string, unknown> | null;
+  }[] = lines.map((line) => {
+    const debit = Number(line.debit ?? 0);
+    const credit = Number(line.credit ?? 0);
+    if (debit < 0 || credit < 0) {
+      throw new Error('ACCOUNTING_NEGATIVE_AMOUNT: les montants débit/crédit doivent être positifs.');
+    }
+    if (!debit && !credit) {
+      throw new Error('ACCOUNTING_EMPTY_LINE: chaque ligne doit avoir un débit ou un crédit non nul.');
+    }
+    totalDebit += debit;
+    totalCredit += credit;
+    return {
+      accountId: line.accountId,
+      label: line.label ?? null,
+      debit,
+      credit,
+      costCenterId: line.costCenterId ?? null,
+      fiscalCode: line.fiscalCode ?? null,
+        projectId: line.projectId ?? null,
+        programmeId: line.programmeId ?? null,
+        activityId: line.activityId ?? null,
+        vehicleRequestId: line.vehicleRequestId ?? null,
+        workItemRef: line.workItemRef ?? null,
+        metadata: line.metadata ?? null,
+    };
+  });
+
+  if (Math.abs(totalDebit - totalCredit) > 0.01) {
+    throw new Error(
+      `ACCOUNTING_UNBALANCED_ENTRY: débits (${totalDebit}) et crédits (${totalCredit}) ne sont pas équilibrés.`,
+    );
+  }
+
+  const baseEntry = await createJournalEntry({
+    organizationId: ctx.organizationId,
+    journalId: ctx.journalId,
+    entryDate: ctx.entryDate,
+    reference: ctx.reference ?? null,
+    description: ctx.description ?? null,
+    documentNumber: ctx.documentNumber ?? null,
+    attachmentType: ctx.attachmentType ?? null,
+    attachmentUrl: ctx.attachmentUrl ?? null,
+    attachmentStoragePath: ctx.attachmentStoragePath ?? null,
+    resourceName: ctx.resourceName ?? null,
+    resourceDatabaseUrl: ctx.resourceDatabaseUrl ?? null,
+    createdById: ctx.createdById ?? null,
+    lines: preparedLines,
+  });
+
+  const finalStatus: JournalEntryStatus = ctx.status && ctx.status !== 'draft' ? ctx.status : 'draft';
+  if (finalStatus !== 'draft') {
+    await setJournalEntryStatus(baseEntry.id, finalStatus);
+  }
+
+  void AuditLogService.logAction({
+    action: 'create',
+    module: 'comptabilite',
+    entityType: 'journal_entry',
+    entityId: baseEntry.id,
+    metadata: {
+      organizationId: ctx.organizationId,
+      journalId: ctx.journalId,
+      status: finalStatus,
+      totalDebit,
+      totalCredit,
+    },
+  });
+
+  return { ...baseEntry, status: finalStatus };
 }

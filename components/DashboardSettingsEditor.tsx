@@ -10,6 +10,7 @@ const WIDGET_LABELS: Record<DashboardWidgetKey, { fr: string; en: string }> = {
   objectifs_du_jour: { fr: 'Objectifs du jour', en: 'Daily objectives' },
   metrics: { fr: 'Tableau de bord analytique (KPIs)', en: 'Analytical dashboard (KPIs)' },
   performance_cabanes: { fr: 'Indicateurs de performance (cabanes vert/jaune/rouge)', en: 'Performance indicators (cabanes)' },
+  analytics_predictif: { fr: 'Analytique prédictif', en: 'Predictive analytics' },
   intelligent_insights: { fr: 'Analyse intelligente & prédictions (legacy)', en: 'Intelligent insights & predictions (legacy)' },
   module_shortcuts: { fr: 'Raccourcis par module', en: 'Module shortcuts' },
 };

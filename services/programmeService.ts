@@ -494,18 +494,28 @@ export async function deleteProgrammeStakeholder(id: string): Promise<void> {
 /** Passe en « non réalisé » les actions actives dont la date de fin (ou échéance) est dépassée. */
 export async function applyProgrammeActionAutoClose(programmeId: string): Promise<void> {
   try {
-    let { data, error } = await supabase
+    let data: any[] | null = null;
+    let error: unknown = null;
+
+    let res: any = await supabase
       .from(PROGRAMME_ACTIONS)
       .select('id, status, period_end, due_date')
       .eq('programme_id', programmeId);
+    data = res.data as any[] | null;
+    error = res.error;
+
     if (error) {
-      ({ data, error } = await supabase
+      res = await supabase
         .from(PROGRAMME_ACTIONS)
         .select('id, status, due_date')
-        .eq('programme_id', programmeId));
+        .eq('programme_id', programmeId);
+      data = res.data as any[] | null;
+      error = res.error;
     }
     if (error) {
-      ({ data, error } = await supabase.from(PROGRAMME_ACTIONS).select('id, status').eq('programme_id', programmeId));
+      res = await supabase.from(PROGRAMME_ACTIONS).select('id, status').eq('programme_id', programmeId);
+      data = res.data as any[] | null;
+      error = res.error;
     }
     if (error || !data?.length) return;
     const today = new Date().toISOString().slice(0, 10);
@@ -580,7 +590,7 @@ export async function listProgrammeActions(programmeId: string): Promise<Program
         mapProgrammeAction({ ...r, programme_action_assignees: r.programme_action_assignees ?? [] }),
       );
 
-    const attempts: Array<() => Promise<{ data: any; error: any }>> = [
+    const attempts = [
       () =>
         supabase
           .from(PROGRAMME_ACTIONS)

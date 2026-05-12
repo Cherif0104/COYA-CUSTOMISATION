@@ -163,7 +163,7 @@ const ContactExchangePanel: React.FC<Props> = ({ contact, canEdit, onUpdateConta
         motif: resolveMotifText(),
         detail: detail.trim() || null,
         statusUpdatedTo: statusChange,
-        createdByUserId: user?.id ?? null,
+        createdByUserId: user?.id != null ? String(user.id) : null,
         followUpAt: followPayload,
       });
       if (error) {

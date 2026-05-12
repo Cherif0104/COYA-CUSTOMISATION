@@ -10,6 +10,7 @@ import {
 } from '../services/driveService';
 import { fileIconClass, formatDriveSize } from './drive/driveFormat';
 import { Language } from '../types';
+import ModuleRichHub from './common/ModuleRichHub';
 
 /** Upload navigateur : types courants (images, bureautique, médias, archives, texte). */
 const DRIVE_UPLOAD_ACCEPT =
@@ -261,7 +262,7 @@ const Drive: React.FC = () => {
     const ownerIds = [
       ...new Set(list.filter((i) => i.item_type === 'folder' && i.owner_profile_id).map((i) => i.owner_profile_id!)),
     ];
-    void DriveService.loadProfileNames(ownerIds).then((m) => {
+    void DriveService.loadProfileNames(ownerIds as string[]).then((m) => {
       if (!cancelled && !m.error) setOwnerMap(m.data);
     });
     return () => {
@@ -496,7 +497,7 @@ const Drive: React.FC = () => {
       try {
         for (const file of files) {
           const sz = DriveService.validateUploadSize(file);
-          if (!sz.ok) throw sz.error;
+          if (!sz.ok) throw (sz as { ok: false; error: Error }).error;
           const res = await DriveService.uploadFile({ parentId: effectiveBrowseParentId, file });
           if (res.error) throw res.error;
         }
@@ -820,8 +821,65 @@ const Drive: React.FC = () => {
 
   const schemaDegraded = !gdsSchemaFlags.workspaceId || !gdsSchemaFlags.documentStatus || !gdsSchemaFlags.category;
 
+  const isFr = language === Language.FR;
+
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 shadow-sm overflow-hidden">
+    <>
+      <div className="px-4 pt-4 pb-2 max-w-[1920px] mx-auto w-full">
+        <ModuleRichHub
+          isFr={isFr}
+          excludeViews={['coya_drive', 'knowledge_base']}
+          metrics={[
+            {
+              labelFr: 'Workspaces',
+              labelEn: 'Workspaces',
+              value: String(workspaces.length),
+              hintFr: 'Espaces GDS visibles',
+              hintEn: 'Visible GDS workspaces',
+            },
+            {
+              labelFr: 'Favoris',
+              labelEn: 'Favorites',
+              value: String(favoriteItems.length),
+              hintFr: 'Raccourcis utilisateur',
+              hintEn: 'User shortcuts',
+            },
+            {
+              labelFr: 'Vue courante',
+              labelEn: 'Current view',
+              value: view,
+              hintFr: 'Navigation interne Drive',
+              hintEn: 'Internal Drive navigation',
+            },
+            {
+              labelFr: 'Schéma GDS',
+              labelEn: 'GDS schema',
+              value: schemaDegraded ? (isFr ? 'Incomplet' : 'Incomplete') : 'OK',
+              hintFr: 'Colonnes requises présentes ?',
+              hintEn: 'Required columns present?',
+            },
+          ]}
+          sections={[
+            {
+              key: 'drive-scope',
+              titleFr: 'COYA Drive — périmètre',
+              titleEn: 'COYA Drive — scope',
+              icon: 'fas fa-folder-open',
+              bulletsFr: [
+                'Espace personnel, partages, corbeille, demandes d’accès et archives GDS.',
+                'Messagerie pour relayer les liens sécurisés vers les dossiers.',
+                'Qualité & conformité : catégories et statuts documentaires.',
+              ],
+              bulletsEn: [
+                'Personal space, shares, trash, access requests and GDS archives.',
+                'Messaging to relay secure links to folders.',
+                'Quality & compliance: document categories and statuses.',
+              ],
+            },
+          ]}
+        />
+      </div>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 shadow-sm overflow-hidden">
       {schemaDegraded ? (
         <div
           className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
@@ -2410,6 +2468,7 @@ const Drive: React.FC = () => {
           </section>
       </div>
     </div>
+    </>
   );
 };
 

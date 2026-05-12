@@ -218,7 +218,7 @@ const Planning: React.FC<PlanningProps> = ({ meetings = [], setView, rh }) => {
       DataAdapter.getPlanningSlots({
         dateFrom: dateFromStr,
         dateTo: dateToStr,
-        userId: user.id,
+        userId: String(user.id),
       })
         .then((list) => {
           if (!cancelled) setSlots(list);
@@ -239,7 +239,7 @@ const Planning: React.FC<PlanningProps> = ({ meetings = [], setView, rh }) => {
       DataAdapter.getPlanningSlots({
         dateFrom: from,
         dateTo: to,
-        userId: user.id,
+        userId: String(user.id),
       })
         .then((list) => {
           if (!cancelled) setSlots(list);
@@ -374,7 +374,7 @@ const Planning: React.FC<PlanningProps> = ({ meetings = [], setView, rh }) => {
     if (!user?.id) return;
     if (modalSlot === 'new') {
       const created = await DataAdapter.createPlanningSlot({
-        userId: user.id,
+        userId: String(user.id),
         slotDate: form.slotDate,
         slotType: form.slotType,
         startTime: form.startTime || undefined,
@@ -637,14 +637,6 @@ const Planning: React.FC<PlanningProps> = ({ meetings = [], setView, rh }) => {
     if (navTab === 'conflicts') void loadConflicts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navTab, teamWeekAnchor, language, rh?.leaveRequests]);
-
-  const placeholderCard = (title: string, body: string, actions?: React.ReactNode) => (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">{title}</h3>
-      <p className="text-sm text-slate-600 mt-2 leading-relaxed">{body}</p>
-      {actions ? <div className="mt-4 flex flex-wrap gap-2">{actions}</div> : null}
-    </div>
-  );
 
   const hubCards: { tab: PlanningNavTab; titleFr: string; titleEn: string; descFr: string; descEn: string; icon: string }[] = [
     {

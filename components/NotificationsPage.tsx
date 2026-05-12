@@ -68,15 +68,15 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigateToEntit
 
   const handleMarkSelectedAsRead = async () => {
     const ids = Array.from(selectedIds);
-    await Promise.all(ids.map(id => NotificationService.markAsRead(id)));
-    setNotifications(prev => prev.map(n => ids.includes(n.id) ? { ...n, read: true } : n));
+    await Promise.all(ids.map((id) => NotificationService.markAsRead(String(id))));
+    setNotifications((prev) => prev.map((n) => (ids.includes(String(n.id)) ? { ...n, read: true } : n)));
     setSelectedIds(new Set());
   };
 
   const handleDeleteSelected = async () => {
     const ids = Array.from(selectedIds);
-    await Promise.all(ids.map(id => NotificationService.deleteNotification(id)));
-    setNotifications(prev => prev.filter(n => !ids.includes(n.id)));
+    await Promise.all(ids.map((id) => NotificationService.deleteNotification(String(id))));
+    setNotifications((prev) => prev.filter((n) => !ids.includes(String(n.id))));
     setSelectedIds(new Set());
   };
 

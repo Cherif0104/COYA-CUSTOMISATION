@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { Language } from '../types';
 import OrganizationService from '../services/organizationService';
@@ -7,6 +7,7 @@ import * as triniteService from '../services/triniteService';
 import { useAuth } from '../contexts/AuthContextSupabase';
 import { supabase } from '../services/supabaseService';
 import { DataService } from '../services/dataService';
+import ModuleRichHub from './common/ModuleRichHub';
 
 /** Trinité : scoring Ndiguel, Yar, Barké ; fiche auto-évaluation ; pilotage managers */
 const TriniteModule: React.FC = () => {
@@ -149,7 +150,7 @@ const TriniteModule: React.FC = () => {
           objectivesDone,
           objectivesTotal: relatedObjectives.length,
           qualityIncidents: Math.max(0, totalTasks - completedTasks > 4 ? 1 : 0),
-          generatedById: user?.id || null,
+          generatedById: user?.id != null ? String(user.id) : null,
         });
         await triniteService.upsertTriniteScore(built);
       }
@@ -208,6 +209,59 @@ const TriniteModule: React.FC = () => {
           </p>
         </div>
       </header>
+
+      <ModuleRichHub
+        isFr={isFr}
+        excludeViews={['trinite']}
+        metrics={[
+          {
+            labelFr: 'Profils scorés (période)',
+            labelEn: 'Profiles scored (period)',
+            value: String(scores.length),
+            hintFr: 'Après recalcul / import',
+            hintEn: 'After recompute / import',
+          },
+          {
+            labelFr: 'Notes équipe (reviewers)',
+            labelEn: 'Team notes (reviewers)',
+            value: String(teamNotes.length),
+            hintFr: 'Auto-évaluations sur la période',
+            hintEn: 'Self-notes on the period',
+          },
+          {
+            labelFr: 'Revues managers',
+            labelEn: 'Manager reviews',
+            value: String(teamReviews.length),
+            hintFr: 'Retours management',
+            hintEn: 'Management feedback',
+          },
+          {
+            labelFr: 'Mon score global',
+            labelEn: 'My global score',
+            value: myScore ? myScore.globalScore.toFixed(1) : '—',
+            hintFr: 'Ndiguel / Yar / Barké agrégés',
+            hintEn: 'Aggregated Ndiguel / Yar / Barké',
+          },
+        ]}
+        sections={[
+          {
+            key: 'tri',
+            titleFr: 'Rôle de la Trinité dans COYA',
+            titleEn: 'Trinité role in COYA',
+            icon: 'fas fa-gem',
+            bulletsFr: [
+              'Alignement performance individuelle avec projets (tâches) et objectifs.',
+              'Pont naturel vers Qualité (incidents) et RH (entretiens).',
+              'Les managers filtrent la période et déclenchent un recalcul côté serveur.',
+            ],
+            bulletsEn: [
+              'Aligns individual performance with projects (tasks) and objectives.',
+              'Natural bridge to Quality (incidents) and HR (reviews).',
+              'Managers pick the period and trigger server-side recompute.',
+            ],
+          },
+        ]}
+      />
 
       <div className="space-y-6">
         <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-wrap items-center gap-3">
@@ -328,21 +382,22 @@ const TriniteModule: React.FC = () => {
             ) : (
               <div className="space-y-4">
                 {teamNotes.map((note) => (
-                  <TriniteTeamNoteReviewCard
-                    key={note.profileId}
-                    note={note}
-                    initialReview={teamReviews.find(
-                      (r) => r.subjectProfileId === note.profileId && r.periodStart === periodStart && r.periodEnd === periodEnd,
-                    )}
-                    profileLabel={profileLabel(note.profileId)}
-                    aidedHelperLabel={note.aidedByProfileId ? profileLabel(note.aidedByProfileId) : '—'}
-                    organizationId={organizationId!}
-                    periodStart={periodStart}
-                    periodEnd={periodEnd}
-                    managerProfileId={myProfileId}
-                    isFr={isFr}
-                    onSaved={loadTeamData}
-                  />
+                  <Fragment key={note.profileId}>
+                    <TriniteTeamNoteReviewCard
+                      note={note}
+                      initialReview={teamReviews.find(
+                        (r) => r.subjectProfileId === note.profileId && r.periodStart === periodStart && r.periodEnd === periodEnd,
+                      )}
+                      profileLabel={profileLabel(note.profileId)}
+                      aidedHelperLabel={note.aidedByProfileId ? profileLabel(note.aidedByProfileId) : '—'}
+                      organizationId={organizationId!}
+                      periodStart={periodStart}
+                      periodEnd={periodEnd}
+                      managerProfileId={myProfileId}
+                      isFr={isFr}
+                      onSaved={loadTeamData}
+                    />
+                  </Fragment>
                 ))}
               </div>
             )}

@@ -164,7 +164,7 @@ export class AuthService {
         email: data.email,
         password: data.password,
         options: {
-          email_redirect_to: undefined, // Pas de redirection email
+          emailRedirectTo: undefined, // Pas de redirection email
           data: {
             full_name: data.full_name,
             phone_number: data.phone_number,
@@ -244,7 +244,7 @@ export class AuthService {
         email: data.email,
         password: data.password,
         options: {
-          email_redirect_to: undefined,
+          emailRedirectTo: undefined,
           data: {
             full_name: data.full_name,
             phone_number: data.phone_number,

@@ -10,6 +10,7 @@ import type { NotificationAction, NotificationType } from '../services/notificat
 import { DataService } from '../services/dataService';
 import { supabase } from '../services/supabaseService';
 import * as messagingMentions from '../services/messagingMentions';
+import ModuleRichHub from './common/ModuleRichHub';
 
 type ConvKind = 'channel' | 'direct';
 type ConvFilter = 'all' | 'unread' | 'favorites';
@@ -327,6 +328,13 @@ const MessagerieModule: React.FC = () => {
     },
     [currentProfileId],
   );
+
+  // ---- Refs stables : permettent aux effets long-lived (realtime, init) de lire l'état
+  // courant sans figurer dans leurs deps, ce qui évite resubscribes et rechargements complets.
+  const isFrRef = useRef(isFr);
+  useEffect(() => {
+    isFrRef.current = isFr;
+  }, [isFr]);
 
   // ---- Helpers de profils ----
   const userByProfileId = useMemo(() => {
@@ -696,13 +704,13 @@ const MessagerieModule: React.FC = () => {
         }));
         setUsers(mappedUsers);
       } catch (e: any) {
-        setError(e?.message || (isFr ? 'Erreur de chargement messagerie.' : 'Messaging loading error.'));
+        setError(e?.message || (isFrRef.current ? 'Erreur de chargement messagerie.' : 'Messaging loading error.'));
       } finally {
         setLoading(false);
       }
     };
     init();
-  }, [currentUser, isFr]);
+  }, [currentUser]);
 
   useEffect(() => {
     loadChannels();
@@ -747,8 +755,9 @@ const MessagerieModule: React.FC = () => {
     }
   }, [organizationId, currentProfileId, loading, channels.length, threads.length]);
 
-  // Charger messages + membres du canal actif
+  // Charger messages + membres du canal actif (avec annulation de course)
   useEffect(() => {
+    let cancelled = false;
     const run = async () => {
       if (!activeChannelId) {
         setChannelMessages([]);
@@ -759,27 +768,44 @@ const MessagerieModule: React.FC = () => {
         messagingService.listChannelMessages(activeChannelId),
         messagingService.listChannelMembers(activeChannelId),
       ]);
+      if (cancelled) return;
       setChannelMessages(msgs);
       setActiveChannelMembers(members);
       const last = msgs[msgs.length - 1] || null;
       setLastMessageMap((prev) => ({ ...prev, [makeConvKey('channel', activeChannelId)]: last }));
     };
     run();
+    return () => {
+      cancelled = true;
+    };
   }, [activeChannelId]);
 
   useEffect(() => {
+    let cancelled = false;
     const run = async () => {
       if (!activeThreadId) {
         setDirectMessages([]);
         return;
       }
       const msgs = await messagingService.listDirectMessages(activeThreadId);
+      if (cancelled) return;
       setDirectMessages(msgs);
       const last = msgs[msgs.length - 1] || null;
       setLastMessageMap((prev) => ({ ...prev, [makeConvKey('direct', activeThreadId)]: last }));
     };
     run();
+    return () => {
+      cancelled = true;
+    };
   }, [activeThreadId]);
+
+  // Reset des pièces jointes en attente et de l'UI éphémère lors d'un switch de conversation,
+  // pour éviter d'envoyer un fichier sélectionné pour la conversation A dans la conversation B.
+  useEffect(() => {
+    setPendingFile(null);
+    setPendingVoice(null);
+    setShowReactionPickerFor(null);
+  }, [activeConvKey]);
 
   // Marquer la conversation active comme lue lorsqu'on l'ouvre / qu'un nouveau message arrive
   useEffect(() => {
@@ -787,7 +813,28 @@ const MessagerieModule: React.FC = () => {
     markRead(activeConvKey);
   }, [activeConvKey, channelMessages.length, directMessages.length, markRead]);
 
-  // Realtime
+  // Refs pour que l'effet realtime ne dépende QUE de l'organisation et du profil courant.
+  // Sans cela, la souscription se démonte/remonte à chaque switch de conversation,
+  // ce qui provoque des flickers, des messages manqués pendant la fenêtre de re-subscription,
+  // et des appels postgres_changes redondants.
+  const activeChannelIdRef = useRef(activeChannelId);
+  const activeThreadIdRef = useRef(activeThreadId);
+  const loadChannelsRef = useRef(loadChannels);
+  const loadThreadsRef = useRef(loadThreads);
+  useEffect(() => {
+    activeChannelIdRef.current = activeChannelId;
+  }, [activeChannelId]);
+  useEffect(() => {
+    activeThreadIdRef.current = activeThreadId;
+  }, [activeThreadId]);
+  useEffect(() => {
+    loadChannelsRef.current = loadChannels;
+  }, [loadChannels]);
+  useEffect(() => {
+    loadThreadsRef.current = loadThreads;
+  }, [loadThreads]);
+
+  // Realtime — souscription unique par couple (organisation, profil).
   useEffect(() => {
     if (!organizationId || !currentProfileId) return;
     const channel = supabase.channel(`messagerie-${organizationId}-${currentProfileId}`);
@@ -801,22 +848,28 @@ const MessagerieModule: React.FC = () => {
           filter: `organization_id=eq.${organizationId}`,
         },
         async (payload: any) => {
-          const row = payload?.new;
+          const row = payload?.new ?? payload?.old;
           if (!row) return;
-          if (row.channel_id && String(row.channel_id) === activeChannelId) {
-            const msgs = await messagingService.listChannelMessages(activeChannelId);
-            setChannelMessages(msgs);
-            const last = msgs[msgs.length - 1] || null;
-            setLastMessageMap((prev) => ({ ...prev, [makeConvKey('channel', activeChannelId)]: last }));
+          const currentChannelId = activeChannelIdRef.current;
+          const currentThreadId = activeThreadIdRef.current;
+          if (row.channel_id && String(row.channel_id) === currentChannelId) {
+            const msgs = await messagingService.listChannelMessages(currentChannelId);
+            if (activeChannelIdRef.current === currentChannelId) {
+              setChannelMessages(msgs);
+              const last = msgs[msgs.length - 1] || null;
+              setLastMessageMap((prev) => ({ ...prev, [makeConvKey('channel', currentChannelId)]: last }));
+            }
           }
-          if (row.direct_thread_id && String(row.direct_thread_id) === activeThreadId) {
-            const msgs = await messagingService.listDirectMessages(activeThreadId);
-            setDirectMessages(msgs);
-            const last = msgs[msgs.length - 1] || null;
-            setLastMessageMap((prev) => ({ ...prev, [makeConvKey('direct', activeThreadId)]: last }));
+          if (row.direct_thread_id && String(row.direct_thread_id) === currentThreadId) {
+            const msgs = await messagingService.listDirectMessages(currentThreadId);
+            if (activeThreadIdRef.current === currentThreadId) {
+              setDirectMessages(msgs);
+              const last = msgs[msgs.length - 1] || null;
+              setLastMessageMap((prev) => ({ ...prev, [makeConvKey('direct', currentThreadId)]: last }));
+            }
           }
-          if (row.channel_id || row.direct_thread_id) {
-            await Promise.all([loadChannels(), loadThreads()]);
+          if ((row.channel_id || row.direct_thread_id) && payload?.eventType !== 'DELETE') {
+            await Promise.all([loadChannelsRef.current?.(), loadThreadsRef.current?.()]);
             const key = row.channel_id
               ? makeConvKey('channel', String(row.channel_id))
               : makeConvKey('direct', String(row.direct_thread_id));
@@ -847,7 +900,7 @@ const MessagerieModule: React.FC = () => {
           filter: `organization_id=eq.${organizationId}`,
         },
         async () => {
-          await loadChannels();
+          await loadChannelsRef.current?.();
         },
       )
       .on(
@@ -859,7 +912,7 @@ const MessagerieModule: React.FC = () => {
           filter: `organization_id=eq.${organizationId}`,
         },
         async () => {
-          await loadThreads();
+          await loadThreadsRef.current?.();
         },
       )
       .on(
@@ -871,7 +924,7 @@ const MessagerieModule: React.FC = () => {
           filter: `profile_id=eq.${currentProfileId}`,
         },
         async () => {
-          await loadThreads();
+          await loadThreadsRef.current?.();
         },
       )
       .subscribe();
@@ -879,7 +932,7 @@ const MessagerieModule: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [organizationId, currentProfileId, activeChannelId, activeThreadId, loadChannels, loadThreads]);
+  }, [organizationId, currentProfileId]);
 
   // ---- Création canal admin ----
   const handleCreateChannel = async () => {
@@ -959,23 +1012,27 @@ const MessagerieModule: React.FC = () => {
   };
 
   // ---- Envoi unifié ----
-  const sendActiveText = async () => {
+  const sendActiveText = useCallback(async () => {
     if (!activeSel || !organizationId || !currentProfileId) return;
     const content = activeDraft.trim();
     if (!content) return;
+    const sentSel = activeSel;
     setSending(true);
     setError(null);
     try {
       const messageType: messagingService.ChatMessageType = linkRegex.test(content) ? 'link' : 'text';
-      if (activeSel.kind === 'channel') {
+      if (sentSel.kind === 'channel') {
         const created = await messagingService.sendChannelMessage({
           organizationId,
-          channelId: activeSel.rawId,
+          channelId: sentSel.rawId,
           senderId: currentProfileId,
           content,
           messageType,
         });
-        appendMessageUnique(setChannelMessages, created);
+        if (activeChannelIdRef.current === sentSel.rawId) {
+          appendMessageUnique(setChannelMessages, created);
+        }
+        setLastMessageMap((prev) => ({ ...prev, [makeConvKey('channel', sentSel.rawId)]: created }));
         setActiveDraft('');
         const broadcast = messagingMentions.isBroadcastMention(content);
         const mentionIds = messagingMentions.extractMentionedProfileIds(content, mentionProfiles, {
@@ -985,7 +1042,7 @@ const MessagerieModule: React.FC = () => {
         const snip = snippetText(content);
         const senderLabel = getDisplayName(currentProfileId);
         const chName = activeChannel?.name || (isFr ? 'canal' : 'channel');
-        const baseMeta = { channelId: activeSel.rawId, channelName: chName, messageId: created.id };
+        const baseMeta = { channelId: sentSel.rawId, channelName: chName, messageId: created.id };
         if (broadcast) {
           await notifyRecipients(
             others,
@@ -1023,12 +1080,15 @@ const MessagerieModule: React.FC = () => {
       } else {
         const created = await messagingService.sendDirectMessage({
           organizationId,
-          directThreadId: activeSel.rawId,
+          directThreadId: sentSel.rawId,
           senderId: currentProfileId,
           content,
           messageType,
         });
-        appendMessageUnique(setDirectMessages, created);
+        if (activeThreadIdRef.current === sentSel.rawId) {
+          appendMessageUnique(setDirectMessages, created);
+        }
+        setLastMessageMap((prev) => ({ ...prev, [makeConvKey('direct', sentSel.rawId)]: created }));
         setActiveDraft('');
         const recipients = activeThread?.memberIds || [];
         const mentionInThread = messagingMentions.extractMentionedProfileIds(content, mentionProfiles, {
@@ -1047,7 +1107,7 @@ const MessagerieModule: React.FC = () => {
               ? 'Nouveau message direct'
               : 'New direct message',
           `${getDisplayName(currentProfileId)}: ${snippetText(content)}`,
-          { threadId: activeSel.rawId, messageId: created.id, kind: 'direct_text' },
+          { threadId: sentSel.rawId, messageId: created.id, kind: 'direct_text' },
           mentionHit ? 'warning' : 'info',
         );
       }
@@ -1060,26 +1120,45 @@ const MessagerieModule: React.FC = () => {
     } finally {
       setSending(false);
     }
-  };
+  }, [
+    activeSel,
+    organizationId,
+    currentProfileId,
+    activeDraft,
+    setActiveDraft,
+    appendMessageUnique,
+    notifyRecipients,
+    getDisplayName,
+    mentionProfiles,
+    activeChannelMembers,
+    activeChannel?.name,
+    activeThread?.memberIds,
+    isFr,
+  ]);
 
-  const sendActiveFile = async () => {
+  const sendActiveFile = useCallback(async () => {
     if (!activeSel || !organizationId || !currentProfileId || !pendingFile) return;
-    const fileName = pendingFile.name;
+    const sentSel = activeSel;
+    const fileToSend = pendingFile;
+    const fileName = fileToSend.name;
     setSending(true);
     setError(null);
     try {
-      if (activeSel.kind === 'channel') {
-        const path = `messaging/channels/${activeSel.rawId}/${Date.now()}-${fileName}`;
-        const { data } = await FileService.uploadFile('documents', pendingFile, path);
+      if (sentSel.kind === 'channel') {
+        const path = `messaging/channels/${sentSel.rawId}/${Date.now()}-${fileName}`;
+        const { data } = await FileService.uploadFile('documents', fileToSend, path);
         const created = await messagingService.sendChannelMessage({
           organizationId,
-          channelId: activeSel.rawId,
+          channelId: sentSel.rawId,
           senderId: currentProfileId,
           content: `${isFr ? 'Fichier' : 'File'}: ${fileName}`,
           messageType: 'link',
           attachmentUrl: data?.url || null,
         });
-        appendMessageUnique(setChannelMessages, created);
+        if (activeChannelIdRef.current === sentSel.rawId) {
+          appendMessageUnique(setChannelMessages, created);
+        }
+        setLastMessageMap((prev) => ({ ...prev, [makeConvKey('channel', sentSel.rawId)]: created }));
         await notifyRecipients(
           activeChannelMembers,
           'updated',
@@ -1087,28 +1166,31 @@ const MessagerieModule: React.FC = () => {
           isFr
             ? `${getDisplayName(currentProfileId)} — fichier dans « ${activeChannel?.name || 'canal'} » : ${fileName}`
             : `${getDisplayName(currentProfileId)} — file in "${activeChannel?.name || 'channel'}": ${fileName}`,
-          { channelId: activeSel.rawId, messageId: created.id, kind: 'channel_file' },
+          { channelId: sentSel.rawId, messageId: created.id, kind: 'channel_file' },
           'info',
         );
       } else {
-        const path = `messaging/direct/${activeSel.rawId}/${Date.now()}-${fileName}`;
-        const { data } = await FileService.uploadFile('documents', pendingFile, path);
+        const path = `messaging/direct/${sentSel.rawId}/${Date.now()}-${fileName}`;
+        const { data } = await FileService.uploadFile('documents', fileToSend, path);
         const created = await messagingService.sendDirectMessage({
           organizationId,
-          directThreadId: activeSel.rawId,
+          directThreadId: sentSel.rawId,
           senderId: currentProfileId,
           content: `${isFr ? 'Fichier' : 'File'}: ${fileName}`,
           messageType: 'link',
           attachmentUrl: data?.url || null,
         });
-        appendMessageUnique(setDirectMessages, created);
+        if (activeThreadIdRef.current === sentSel.rawId) {
+          appendMessageUnique(setDirectMessages, created);
+        }
+        setLastMessageMap((prev) => ({ ...prev, [makeConvKey('direct', sentSel.rawId)]: created }));
         const recipients = activeThread?.memberIds || [];
         await notifyRecipients(
           recipients,
           'updated',
           isFr ? 'Nouveau fichier direct' : 'New direct file',
           `${getDisplayName(currentProfileId)} — ${fileName}`,
-          { threadId: activeSel.rawId, messageId: created.id, kind: 'direct_file' },
+          { threadId: sentSel.rawId, messageId: created.id, kind: 'direct_file' },
           'info',
         );
       }
@@ -1118,25 +1200,42 @@ const MessagerieModule: React.FC = () => {
     } finally {
       setSending(false);
     }
-  };
+  }, [
+    activeSel,
+    organizationId,
+    currentProfileId,
+    pendingFile,
+    appendMessageUnique,
+    notifyRecipients,
+    getDisplayName,
+    activeChannelMembers,
+    activeChannel?.name,
+    activeThread?.memberIds,
+    isFr,
+  ]);
 
-  const sendActiveVoice = async () => {
+  const sendActiveVoice = useCallback(async () => {
     if (!activeSel || !organizationId || !currentProfileId || !pendingVoice) return;
+    const sentSel = activeSel;
+    const voiceToSend = pendingVoice;
     setSending(true);
     setError(null);
     try {
-      if (activeSel.kind === 'channel') {
-        const path = `messaging/channels/${activeSel.rawId}/${Date.now()}-${pendingVoice.name}`;
-        const { data } = await FileService.uploadFile('documents', pendingVoice, path);
+      if (sentSel.kind === 'channel') {
+        const path = `messaging/channels/${sentSel.rawId}/${Date.now()}-${voiceToSend.name}`;
+        const { data } = await FileService.uploadFile('documents', voiceToSend, path);
         const created = await messagingService.sendChannelMessage({
           organizationId,
-          channelId: activeSel.rawId,
+          channelId: sentSel.rawId,
           senderId: currentProfileId,
           content: isFr ? 'Message vocal' : 'Voice message',
           messageType: 'voice',
           attachmentUrl: data?.url || null,
         });
-        appendMessageUnique(setChannelMessages, created);
+        if (activeChannelIdRef.current === sentSel.rawId) {
+          appendMessageUnique(setChannelMessages, created);
+        }
+        setLastMessageMap((prev) => ({ ...prev, [makeConvKey('channel', sentSel.rawId)]: created }));
         await notifyRecipients(
           activeChannelMembers,
           'updated',
@@ -1144,28 +1243,31 @@ const MessagerieModule: React.FC = () => {
           isFr
             ? `${getDisplayName(currentProfileId)} — vocal dans « ${activeChannel?.name || 'canal'} »`
             : `${getDisplayName(currentProfileId)} — voice in "${activeChannel?.name || 'channel'}"`,
-          { channelId: activeSel.rawId, messageId: created.id, kind: 'channel_voice' },
+          { channelId: sentSel.rawId, messageId: created.id, kind: 'channel_voice' },
           'info',
         );
       } else {
-        const path = `messaging/direct/${activeSel.rawId}/${Date.now()}-${pendingVoice.name}`;
-        const { data } = await FileService.uploadFile('documents', pendingVoice, path);
+        const path = `messaging/direct/${sentSel.rawId}/${Date.now()}-${voiceToSend.name}`;
+        const { data } = await FileService.uploadFile('documents', voiceToSend, path);
         const created = await messagingService.sendDirectMessage({
           organizationId,
-          directThreadId: activeSel.rawId,
+          directThreadId: sentSel.rawId,
           senderId: currentProfileId,
           content: isFr ? 'Message vocal' : 'Voice message',
           messageType: 'voice',
           attachmentUrl: data?.url || null,
         });
-        appendMessageUnique(setDirectMessages, created);
+        if (activeThreadIdRef.current === sentSel.rawId) {
+          appendMessageUnique(setDirectMessages, created);
+        }
+        setLastMessageMap((prev) => ({ ...prev, [makeConvKey('direct', sentSel.rawId)]: created }));
         const recipients = activeThread?.memberIds || [];
         await notifyRecipients(
           recipients,
           'updated',
           isFr ? 'Nouveau vocal direct' : 'New direct voice message',
           `${getDisplayName(currentProfileId)} — ${isFr ? 'message vocal' : 'voice message'}`,
-          { threadId: activeSel.rawId, messageId: created.id, kind: 'direct_voice' },
+          { threadId: sentSel.rawId, messageId: created.id, kind: 'direct_voice' },
           'info',
         );
       }
@@ -1175,7 +1277,19 @@ const MessagerieModule: React.FC = () => {
     } finally {
       setSending(false);
     }
-  };
+  }, [
+    activeSel,
+    organizationId,
+    currentProfileId,
+    pendingVoice,
+    appendMessageUnique,
+    notifyRecipients,
+    getDisplayName,
+    activeChannelMembers,
+    activeChannel?.name,
+    activeThread?.memberIds,
+    isFr,
+  ]);
 
   // ---- Ouverture d'un fil DM depuis le picker ----
   const openDirectThread = async (otherProfileId: string) => {
@@ -1312,12 +1426,22 @@ const MessagerieModule: React.FC = () => {
 
   // ---- Auto-scroll ----
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const activeMessages = activeSel?.kind === 'channel' ? channelMessages : activeSel?.kind === 'direct' ? directMessages : [];
+  const activeMessages = useMemo(
+    () =>
+      activeSel?.kind === 'channel'
+        ? channelMessages
+        : activeSel?.kind === 'direct'
+          ? directMessages
+          : [],
+    [activeSel?.kind, channelMessages, directMessages],
+  );
+  // Le scroll se déclenche uniquement quand la conversation change OU quand un message
+  // est ajouté/supprimé (longueur), pas à chaque re-render parent (ex: filtre ou favori).
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [activeMessages, activeConvKey]);
+  }, [activeMessages.length, activeConvKey]);
 
   // ---- Gestion clavier input ----
   const handleInputKeyDown = useCallback(
@@ -1414,6 +1538,8 @@ const MessagerieModule: React.FC = () => {
         </div>
       </header>
 
+      <ModuleRichHub variant="compact" isFr={isFr} excludeViews={['messagerie']} />
+
       {error && (
         <div className="mx-4 mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 shrink-0">
           {error}
@@ -1453,7 +1579,7 @@ const MessagerieModule: React.FC = () => {
                   onClick={() => setShowNewDirect((v) => !v)}
                   title={isFr ? 'Nouveau message direct' : 'New direct message'}
                   className="h-8 w-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-slate-50"
-                  style={{ borderColor: '#e2e8f0', color: '#64748b' }}
+                  style={{ borderColor: 'rgba(13, 122, 43, 1)', color: 'rgba(132, 245, 166, 1)' }}
                 >
                   <i className="fas fa-pen-to-square text-[12px]" />
                 </button>

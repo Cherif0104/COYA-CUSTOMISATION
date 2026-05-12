@@ -33,3 +33,5 @@ export type AccountingReportMode = Extract<
 export type AccountingComptaFocus = Extract<AccountingRouteId, 'plan_comptable' | 'analytique' | 'centres_couts'>;
 
 export type AccountingTresorerieFocus = Extract<AccountingRouteId, 'banques' | 'caisse' | 'rapprochements'>;
+
+export type AccountingFiscaliteFocus = Extract<AccountingRouteId, 'tva' | 'impots' | 'declarations'>;

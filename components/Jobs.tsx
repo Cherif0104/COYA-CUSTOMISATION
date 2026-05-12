@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useAuth } from '../contexts/AuthContextSupabase';
 import { useModulePermissions } from '../hooks/useModulePermissions';
-import { Job, User } from '../types';
+import { Job, User, Language } from '../types';
+import ModuleRichHub from './common/ModuleRichHub';
 
 const CircularProgress: React.FC<{ score: number }> = ({ score }) => {
   const radius = 22;
@@ -239,7 +240,7 @@ const JobRow: React.FC<{ job: Job, onApply: (jobId: number, source: 'online' | '
                   href={job.applicationLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() => handleApply(job.id, 'link')}
+                  onClick={() => onApply(job.id, 'link')}
                   className="bg-white border-2 border-emerald-600 text-emerald-600 px-6 py-3 rounded-lg font-semibold hover:bg-emerald-50 transition-colors text-center"
                 >
                   <i className="fas fa-external-link-alt mr-2"></i>
@@ -249,7 +250,7 @@ const JobRow: React.FC<{ job: Job, onApply: (jobId: number, source: 'online' | '
               {job.applicationEmail && (
                 <a
                   href={`mailto:${job.applicationEmail}?subject=Candidature: ${job.title}`}
-                  onClick={() => handleApply(job.id, 'email')}
+                  onClick={() => onApply(job.id, 'email')}
                   className="bg-white border-2 border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:border-gray-400 hover:bg-gray-50 transition-colors text-center"
                 >
                   <i className="fas fa-envelope mr-2"></i>
@@ -271,7 +272,8 @@ interface JobsProps {
 }
 
 const Jobs: React.FC<JobsProps> = ({ jobs, setJobs, setView }) => {
-  const { t } = useLocalization();
+  const { t, language } = useLocalization();
+  const isFr = language === Language.FR;
   const { user } = useAuth();
   const { canAccessModule, hasPermission } = useModulePermissions();
   const canManageJobs = useMemo(() => {
@@ -446,6 +448,32 @@ const Jobs: React.FC<JobsProps> = ({ jobs, setJobs, setView }) => {
           <p className="mt-1 text-2xl font-semibold text-slate-900">{openJobs}</p>
         </div>
       </div>
+
+      <ModuleRichHub
+        isFr={isFr}
+        setView={setView}
+        excludeViews={['jobs', 'create_job', 'job_management']}
+        sections={[
+          {
+            key: 'flow',
+            titleFr: 'Parcours recrutement dans COYA',
+            titleEn: 'Recruitment journey in COYA',
+            icon: 'fas fa-route',
+            bulletsFr: [
+              'Publication des offres (statut « publié ») et visibilité côté candidats.',
+              'Gestion des offres : module dédié pour créer, modifier, archiver.',
+              'CRM : transformer les leads en contacts après campagnes Collecte ou sourcing.',
+              'RH & Trinité : suivi des collaborateurs et scoring périodique.',
+            ],
+            bulletsEn: [
+              'Job postings (published status) and candidate-facing list.',
+              'Job management module to create, edit and archive postings.',
+              'CRM: turn leads into contacts after Collecte campaigns or sourcing.',
+              'HR & Trinité: workforce tracking and periodic scoring.',
+            ],
+          },
+        ]}
+      />
 
       <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-6">
           <div className="flex flex-wrap items-center gap-4">

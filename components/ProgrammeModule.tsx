@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { Fragment, useState, useEffect, useCallback, useMemo } from 'react';
 import StructuredModulePage from './common/StructuredModulePage';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useAuth } from '../contexts/AuthContextSupabase';
@@ -1274,18 +1274,19 @@ const ProgrammeModule: React.FC = () => {
           )}
 
           {(showProgrammeForm || editProgramme) && (
-            <ProgrammeForm
-              key={editProgramme?.id || 'new-programme'}
-              isFr={isFr}
-              bailleurs={bailleurs}
-              initial={editProgramme || undefined}
-              onSubmit={handleSaveProgramme}
-              onCancel={() => {
-                setShowProgrammeForm(false);
-                setEditProgramme(null);
-              }}
-              submitting={submitting}
-            />
+            <Fragment key={editProgramme?.id || 'new-programme'}>
+              <ProgrammeForm
+                isFr={isFr}
+                bailleurs={bailleurs}
+                initial={editProgramme || undefined}
+                onSubmit={handleSaveProgramme}
+                onCancel={() => {
+                  setShowProgrammeForm(false);
+                  setEditProgramme(null);
+                }}
+                submitting={submitting}
+              />
+            </Fragment>
           )}
 
           {!selectedProgramme ? (
@@ -2304,13 +2305,13 @@ const ProgrammeModule: React.FC = () => {
                             )}
                           </div>
                           {(showActivityForm || editActivity) && (
-                            <ActivityTerrainForm
-                              key={editActivity?.id || 'new-activity'}
-                              isFr={isFr}
-                              initial={editActivity || undefined}
-                              submitting={submitting}
-                              onCancel={() => { setShowActivityForm(false); setEditActivity(null); }}
-                              onSubmit={async (e, form) => {
+                            <Fragment key={editActivity?.id || 'new-activity'}>
+                              <ActivityTerrainForm
+                                isFr={isFr}
+                                initial={editActivity || undefined}
+                                submitting={submitting}
+                                onCancel={() => { setShowActivityForm(false); setEditActivity(null); }}
+                                onSubmit={async (e, form) => {
                                 e.preventDefault();
                                 if (!form.title.trim()) return;
                                 setSubmitting(true);
@@ -2356,7 +2357,8 @@ const ProgrammeModule: React.FC = () => {
                                   setSubmitting(false);
                                 }
                               }}
-                            />
+                              />
+                            </Fragment>
                           )}
                           <ul className="space-y-1 max-h-36 overflow-y-auto">
                             {projectActivities.map((a) => (
@@ -2511,7 +2513,7 @@ function ProgrammeWorkspaceContextAside({
           <div className="mt-4 border-t border-gray-100 pt-3">
             <p className="mb-2 text-xs text-gray-500">
               {isFr
-                ? 'Ouvrir les formations (cours) rattachées à ce programme dans le module Formations.'
+                ? 'Ouvrir APEX (cours) rattachés à ce programme dans le module e-learning.'
                 : 'Open trainings linked to this programme in the Courses module.'}
             </p>
             <button
@@ -2523,10 +2525,10 @@ function ProgrammeWorkspaceContextAside({
                 } catch (_) {
                   /* ignore */
                 }
-                navSetView('formation');
+                navSetView('apex');
               }}
             >
-              {isFr ? 'Voir les formations du programme →' : 'View programme courses →'}
+              {isFr ? 'Voir les cours du programme (APEX) →' : 'View programme courses (APEX) →'}
             </button>
           </div>
         )}
@@ -2920,12 +2922,12 @@ function ProgrammeActionDetailModal({
     setReassignNote(null);
     setReassignSaving(true);
     try {
-      const ids = Array.from(reassignIds);
+      const ids: string[] = Array.from(reassignIds);
       try {
         await programmeService.setProgrammeActionAssignees(action.id, ids);
       } catch {
         const first = ids[0] ?? null;
-        await programmeService.updateProgrammeAction(action.id, { executorProfileId: first });
+        await programmeService.updateProgrammeAction(action.id, { executorProfileId: first ?? undefined });
         setReassignNote(
           isFr
             ? 'Base sans table multi-assignés : seul l’exécuteur principal a été mis à jour.'

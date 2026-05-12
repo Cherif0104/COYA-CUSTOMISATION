@@ -387,7 +387,7 @@ const EmployeeWorkspaceShell: React.FC<EmployeeWorkspaceShellProps> = ({
     const presenceRate = summaries.length ? Math.round((completed / total) * 100) : null;
     const projMin = summaries.reduce((a, s) => a + (s.minutesProjectWork || 0), 0);
     const enrolledCourses = trainingRows.filter((r) => r.enrolled).length;
-    const pubSample = trainingRows.length;
+    const publishedCourseCount = trainingRows.length;
     return [
       {
         id: 'presence',
@@ -409,9 +409,9 @@ const EmployeeWorkspaceShell: React.FC<EmployeeWorkspaceShellProps> = ({
       },
       {
         id: 'formation',
-        label: isFr ? 'Formations (catalogue publié)' : 'Training (published sample)',
-        value: pubSample ? `${enrolledCourses}/${pubSample}` : '—',
-        unit: isFr ? 'inscrits / cours (aperçu)' : 'enrolled / courses (sample)',
+        label: isFr ? 'APEX (catalogue publié)' : 'APEX (published catalog)',
+        value: publishedCourseCount ? `${enrolledCourses}/${publishedCourseCount}` : '—',
+        unit: isFr ? 'inscrits / cours publiés' : 'enrolled / published courses',
       },
       {
         id: 'proofs',
@@ -801,21 +801,21 @@ const EmployeeWorkspaceShell: React.FC<EmployeeWorkspaceShellProps> = ({
                   </dd>
                 </div>
                 <div className="rounded-lg border border-slate-100 bg-white px-3 py-2 sm:col-span-2">
-                  <dt className="text-xs font-medium uppercase text-slate-500">{isFr ? 'Formations (LMS)' : 'Training (LMS)'}</dt>
+                  <dt className="text-xs font-medium uppercase text-slate-500">{isFr ? 'APEX (LMS)' : 'APEX (LMS)'}</dt>
                   <dd className="flex flex-col gap-2 text-slate-800 sm:flex-row sm:items-center sm:justify-between">
                     <span>
                       {trainingRows.length === 0
                         ? isFr
-                          ? 'Chargement ou aucun cours publié dans l’aperçu.'
-                          : 'Loading or no published courses in sample.'
+                          ? 'Chargement ou aucun cours publié pour cette organisation.'
+                          : 'Loading or no published courses for this organization.'
                         : isFr
-                          ? `${trainingRows.filter((r) => r.enrolled).length} inscription(s) sur ${trainingRows.length} cours publiés (aperçu).`
-                          : `${trainingRows.filter((r) => r.enrolled).length} enrollment(s) on ${trainingRows.length} published courses (sample).`}
+                          ? `${trainingRows.filter((r) => r.enrolled).length} inscription(s) sur ${trainingRows.length} cours publiés.`
+                          : `${trainingRows.filter((r) => r.enrolled).length} enrollment(s) on ${trainingRows.length} published courses.`}
                     </span>
                     {onNavigateView ? (
                       <button
                         type="button"
-                        onClick={() => onNavigateView('formation')}
+                        onClick={() => onNavigateView('apex')}
                         className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-100"
                       >
                         {isFr ? 'Ouvrir le module Formations' : 'Open Training module'}
@@ -1069,11 +1069,11 @@ const EmployeeWorkspaceShell: React.FC<EmployeeWorkspaceShellProps> = ({
       case 'training':
         return (
           <WorkspaceSection
-            title={isFr ? '9. Formation (catalogue & inscriptions)' : '9. Training (catalog & enrollments)'}
+            title={isFr ? '9. APEX (catalogue & inscriptions)' : '9. APEX (catalog & enrollments)'}
             description={
               isFr
-                ? 'Cours publiés visibles + progression `course_enrollments` pour votre compte (`user_id`). RLS : seules les lignes autorisées sont retournées.'
-                : 'Published courses plus `course_enrollments` progress for your account (`user_id`). RLS applies.'
+                ? 'Cours APEX publiés visibles + progression `course_enrollments` pour votre compte (`user_id`). RLS : seules les lignes autorisées sont retournées.'
+                : 'Published APEX courses plus `course_enrollments` progress for your account (`user_id`). RLS applies.'
             }
           >
             {trainingRows.length === 0 ? (
@@ -1086,10 +1086,10 @@ const EmployeeWorkspaceShell: React.FC<EmployeeWorkspaceShellProps> = ({
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={() => onNavigateView('formation')}
+                      onClick={() => onNavigateView('apex')}
                       className="rounded-2xl border border-slate-200/80 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-[0_8px_30px_rgba(15,23,42,0.06)] hover:bg-slate-50"
                     >
-                      {isFr ? 'Ouvrir les formations' : 'Open courses'}
+                      {isFr ? 'Ouvrir APEX' : 'Open APEX'}
                     </button>
                     <button
                       type="button"
@@ -1123,7 +1123,7 @@ const EmployeeWorkspaceShell: React.FC<EmployeeWorkspaceShellProps> = ({
               <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                 <button
                   type="button"
-                  onClick={() => onNavigateView('formation')}
+                  onClick={() => onNavigateView('apex')}
                   className="font-semibold text-emerald-800 underline-offset-2 hover:underline"
                 >
                   {isFr ? 'Catalogue complet' : 'Full catalog'}
@@ -1179,13 +1179,13 @@ const EmployeeWorkspaceShell: React.FC<EmployeeWorkspaceShellProps> = ({
                 >
                   {isFr ? 'Objectifs & OKR' : 'Goals & OKRs'}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => onNavigateView('formation')}
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-100"
-                >
-                  {isFr ? 'Formations' : 'Courses'}
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => onNavigateView('apex')}
+                      className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-100"
+                    >
+                      {isFr ? 'APEX' : 'APEX'}
+                    </button>
                 {canManageDocRequests ? (
                   <button
                     type="button"

@@ -58,7 +58,7 @@ export function applyTaskStatusChange(
       actorId: ctx.actorId,
       source: 'ui',
     });
-    if (!collected.ok) {
+    if (collected.ok === false) {
       return { ok: false, errorFr: collected.errorFr, errorEn: collected.errorEn };
     }
     statusDomainEvents = collected.events;

@@ -51,6 +51,7 @@ export const MODULE_LABELS: Record<string, { fr: string; en: string }> = {
   parc_auto: { fr: 'Parc Auto', en: 'Fleet management' },
   ticket_it: { fr: 'Ticket IT', en: 'IT Ticket' },
   messagerie: { fr: 'Messagerie', en: 'Messaging' },
-  /** Coquille LMS (routée dans App.tsx avec données cours — label pour useModuleLabels fallback). */
-  formation: { fr: 'Formations (LMS)', en: 'Training (LMS)' },
+  /** Coquille LMS APEX (routée dans App.tsx avec données cours). */
+  apex: { fr: 'APEX (e-learning)', en: 'APEX (e-learning)' },
+  formation: { fr: 'APEX (e-learning)', en: 'APEX (e-learning)' },
 };

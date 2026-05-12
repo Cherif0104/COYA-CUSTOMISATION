@@ -648,7 +648,7 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, onBack, timeLogs, o
                     
                     // Charger la progression de l'utilisateur
                     const enrollmentResult = await DataService.getCourseEnrollment(course.id, String(userId));
-                    const completedLessons = enrollmentResult.data?.completed_lessons || [];
+                    const completedLessons = (enrollmentResult.data?.completed_lessons || []) as string[];
                     const progress = enrollmentResult.data?.progress || 0;
                     const notes = enrollmentResult.data?.notes || {};
                     
@@ -700,13 +700,13 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, onBack, timeLogs, o
             if (payload.new && payload.new.course_id === course.id && payload.new.user_id === userId) {
                 // Mettre à jour la progression en temps réel
                 const newProgress = payload.new.progress || 0;
-                const newCompletedLessons = payload.new.completed_lessons || [];
+                const newCompletedLessons = (payload.new.completed_lessons || []) as string[];
                 const newNotes = payload.new.notes || {};
                 
                 onCourseChange({
                     ...course,
                     progress: newProgress,
-                    completedLessons: newCompletedLessons
+                    completedLessons: newCompletedLessons as string[]
                 });
                 
                 // Mettre à jour les notes
@@ -765,7 +765,7 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, onBack, timeLogs, o
             setInProgressLessons(prev => prev.filter(id => id !== lessonId));
         }
         
-        const newCompletedLessons = Array.from(completed);
+        const newCompletedLessons = Array.from(completed) as string[];
         let newProgress = totalLessons > 0 ? Math.round((newCompletedLessons.length / totalLessons) * 100) : 0;
         
         if (newProgress === 0 && course.progress > 0) {

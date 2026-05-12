@@ -3,13 +3,13 @@ import { useLocalization } from '../contexts/LocalizationContext';
 import { Language, ModuleName } from '../types';
 import { useModuleLabels } from '../hooks/useModuleLabels';
 import { useAuth } from '../contexts/AuthContextSupabase';
-import { NAV_SESSION_FORMATION_SECTION } from '../contexts/AppNavigationContext';
+import { NAV_SESSION_APEX_SECTION } from '../contexts/AppNavigationContext';
 import {
-  FORMATION_SIDEBAR_ITEMS,
-  parseFormationSectionFromHash,
-  pushFormationSectionToUrl,
-  type FormationHubSection,
-} from '../utils/formationNav';
+  APEX_SIDEBAR_ITEMS,
+  parseApexSectionFromHash,
+  pushApexSectionToUrl,
+  type ApexSection,
+} from '../utils/apexNav';
 
 /** Casse homogène pour le menu : type « titre » par mot, sigles courants conservés. */
 function formatSidebarMenuLabel(raw: string, language: Language): string {
@@ -75,7 +75,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
   { icon: 'fas fa-users-cog',        labelKey: 'rh',              labelFallback: 'Ressources Humaines', view: 'rh',                  color: 'text-green-400' },
   { icon: 'fas fa-calculator',       labelKey: 'comptabilite',    labelFallback: 'Comptabilité',        view: 'comptabilite',        color: 'text-yellow-400' },
   { icon: 'fas fa-chart-line',       labelKey: 'programme',       labelFallback: 'Programme',           view: 'programme',           color: 'text-orange-400' },
-  { icon: 'fas fa-book-open',        labelKey: 'courses',         labelFallback: 'Formations',          view: 'formation',           color: 'text-pink-400' },
+  { icon: 'fas fa-book-open',        labelKey: 'courses',         labelFallback: 'APEX',                view: 'apex',              color: 'text-pink-400' },
   { icon: 'fas fa-briefcase',        labelKey: 'jobs',            labelFallback: 'Offres d\u2019emploi', view: 'jobs',               color: 'text-orange-300' },
   { icon: 'fas fa-users',            labelKey: 'crm_sales',       labelFallback: 'CRM & Ventes',        view: 'crm_sales',           color: 'text-emerald-400' },
   { icon: 'fas fa-gem',              labelKey: 'trinite',         labelFallback: 'Trinité',             view: 'trinite',             color: 'text-red-400' },
@@ -154,20 +154,20 @@ const Sidebar: React.FC<SidebarProps> = ({
     typeof window !== 'undefined' ? window.matchMedia('(min-width: 1024px)').matches : false,
   );
   const [profileOpen, setProfileOpen] = useState(false);
-  const [formationNavExpanded, setFormationNavExpanded] = useState(true);
-  const [formationHashSection, setFormationHashSection] = useState<FormationHubSection | null>(() =>
-    typeof window !== 'undefined' ? parseFormationSectionFromHash() : null,
+  const [apexNavExpanded, setApexNavExpanded] = useState(true);
+  const [apexHashSection, setApexHashSection] = useState<ApexSection | null>(() =>
+    typeof window !== 'undefined' ? parseApexSectionFromHash() : null,
   );
 
   useEffect(() => {
-    const syncFormationHash = () => {
-      setFormationHashSection(parseFormationSectionFromHash());
+    const syncApexHash = () => {
+      setApexHashSection(parseApexSectionFromHash());
     };
-    window.addEventListener('hashchange', syncFormationHash);
-    window.addEventListener('coya-formation-section', syncFormationHash as EventListener);
+    window.addEventListener('hashchange', syncApexHash);
+    window.addEventListener('coya-apex-section', syncApexHash as EventListener);
     return () => {
-      window.removeEventListener('hashchange', syncFormationHash);
-      window.removeEventListener('coya-formation-section', syncFormationHash as EventListener);
+      window.removeEventListener('hashchange', syncApexHash);
+      window.removeEventListener('coya-apex-section', syncApexHash as EventListener);
     };
   }, []);
 
@@ -241,9 +241,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         }
       }
       const moduleForAccess: ModuleName =
-        item.view === 'formation'
-          ? 'courses'
-          : (item.view as ModuleName);
+        item.view === 'apex' ? 'courses' : (item.view as ModuleName);
       const allowed = canAccessModule(moduleForAccess);
       if (allowed) out.push(item);
     }
@@ -279,8 +277,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       return true;
     }
     if (
-      view === 'formation' &&
-      (currentView === 'formation' ||
+      view === 'apex' &&
+      (currentView === 'apex' ||
+        currentView === 'formation' ||
         currentView === 'courses' ||
         currentView.startsWith('course'))
     ) {
@@ -290,15 +289,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   useEffect(() => {
-    const formationActive =
+    const apexActive =
+      currentView === 'apex' ||
       currentView === 'formation' ||
       currentView === 'courses' ||
       currentView.startsWith('course');
-    if (formationActive) setFormationNavExpanded(true);
+    if (apexActive) setApexNavExpanded(true);
   }, [currentView]);
 
-  const formationSidebarActiveSection: FormationHubSection =
-    formationHashSection ?? 'overview';
+  const apexSidebarActiveSection: ApexSection = apexHashSection ?? 'overview';
 
   const userInitials = (user?.name || 'U')
     .split(' ')
@@ -371,7 +370,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         ) : (
           <ul className="space-y-0.5">
             {allNavItems.map((item) =>
-              item.view === 'formation' && !effectiveCollapsed ? (
+              item.view === 'apex' && !effectiveCollapsed ? (
                 <li key={`${item.view}-${item.labelKey}`} className="space-y-0.5">
                   <div className="flex items-stretch gap-0.5">
                     <div className="min-w-0 flex-1">
@@ -382,13 +381,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                         label={getLabel(item)}
                         onClick={() => {
                           try {
-                            sessionStorage.setItem(NAV_SESSION_FORMATION_SECTION, 'overview');
+                            sessionStorage.setItem(NAV_SESSION_APEX_SECTION, 'overview');
                           } catch {
                             /* ignore */
                           }
-                          pushFormationSectionToUrl('overview');
-                          setView('formation');
-                          setFormationNavExpanded(true);
+                          pushApexSectionToUrl('overview');
+                          setView('apex');
+                          setApexNavExpanded(true);
                           onCloseMobile?.();
                           if (collapsed) setHoverPeekOpen(false);
                         }}
@@ -398,37 +397,39 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <button
                       type="button"
                       className="flex w-8 shrink-0 items-center justify-center rounded-xl text-white/50 hover:bg-white/10 hover:text-white/90"
-                      aria-expanded={formationNavExpanded}
-                      aria-label={formationNavExpanded ? 'Replier le sous-menu Formation' : 'Déplier le sous-menu Formation'}
-                      onClick={() => setFormationNavExpanded((v) => !v)}
+                      aria-expanded={apexNavExpanded}
+                      aria-label={
+                        apexNavExpanded ? 'Replier le sous-menu APEX' : 'Déplier le sous-menu APEX'
+                      }
+                      onClick={() => setApexNavExpanded((v) => !v)}
                     >
-                      <i className={`fas fa-chevron-${formationNavExpanded ? 'up' : 'down'} text-[10px]`} />
+                      <i className={`fas fa-chevron-${apexNavExpanded ? 'up' : 'down'} text-[10px]`} />
                     </button>
                   </div>
-                  {formationNavExpanded ? (
+                  {apexNavExpanded ? (
                     <ul className="ml-2 mt-0.5 space-y-0.5 border-l border-white/10 pl-2">
-                      {FORMATION_SIDEBAR_ITEMS.map((sub) => {
+                      {APEX_SIDEBAR_ITEMS.map((sub) => {
                         const subActive =
-                          isItemActive('formation') && formationSidebarActiveSection === sub.section;
+                          isItemActive('apex') && apexSidebarActiveSection === sub.section;
                         return (
                           <li key={sub.section}>
                             <button
                               type="button"
-                              data-testid={`nav-formation-${sub.section}`}
+                              data-testid={`nav-apex-${sub.section}`}
                               onClick={() => {
                                 try {
-                                  sessionStorage.setItem(NAV_SESSION_FORMATION_SECTION, sub.section);
+                                  sessionStorage.setItem(NAV_SESSION_APEX_SECTION, sub.section);
                                 } catch {
                                   /* ignore */
                                 }
-                                pushFormationSectionToUrl(sub.section);
-                                setView('formation');
+                                pushApexSectionToUrl(sub.section);
+                                setView('apex');
                                 onCloseMobile?.();
                                 if (collapsed) setHoverPeekOpen(false);
                               }}
                               className={`flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[12px] transition-colors ${
                                 subActive
-                                  ? 'bg-sky-500/25 font-medium text-white'
+                                  ? 'bg-pink-500/25 font-medium text-white'
                                   : 'text-white/55 hover:bg-white/10 hover:text-white/90'
                               }`}
                             >
@@ -440,7 +441,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     </ul>
                   ) : null}
                 </li>
-              ) : item.view === 'formation' && effectiveCollapsed ? (
+              ) : item.view === 'apex' && effectiveCollapsed ? (
                 <li key={`${item.view}-${item.labelKey}`}>
                   <NavItem
                     item={item}
@@ -449,12 +450,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                     label={getLabel(item)}
                     onClick={() => {
                       try {
-                        sessionStorage.setItem(NAV_SESSION_FORMATION_SECTION, 'overview');
+                        sessionStorage.setItem(NAV_SESSION_APEX_SECTION, 'overview');
                       } catch {
                         /* ignore */
                       }
-                      pushFormationSectionToUrl('overview');
-                      setView('formation');
+                      pushApexSectionToUrl('overview');
+                      setView('apex');
                       onCloseMobile?.();
                       if (collapsed) setHoverPeekOpen(false);
                     }}

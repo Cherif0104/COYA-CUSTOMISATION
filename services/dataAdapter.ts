@@ -6,7 +6,6 @@ import OrganizationService from './organizationService';
 import { supabase } from './supabaseService';
 import { handleOptionalTableError } from './optionalTableGuard';
 import { effectiveInvoiceStatusFromRow } from './invoiceDerivedStatus';
-import { mockCourses, mockProjects, mockGoals } from '../constants/data';
 import {
   Course,
   CourseAudienceSegment,
@@ -45,6 +44,7 @@ import {
   HrWorkforceAnomaly,
   WorkforceTimelineSegmentRow,
   EmployeeWorkSchedule,
+  ProjectStatus,
 } from '../types';
 import { verboseLogs } from './verboseLog';
 
@@ -269,7 +269,16 @@ export class DataAdapter {
             }
             const prog = project.programme_id ? programmeMap[project.programme_id] : null;
             const rawStatus = (project.status || 'not_started').toLowerCase();
-            const statusDisplay = rawStatus === 'completed' ? 'Completed' : rawStatus === 'cancelled' ? 'Cancelled' : rawStatus === 'on_hold' ? 'On Hold' : rawStatus === 'in_progress' || rawStatus === 'active' ? 'In Progress' : 'Not Started';
+            const statusDisplay: ProjectStatus =
+              rawStatus === 'completed'
+                ? 'Completed'
+                : rawStatus === 'cancelled'
+                ? 'Cancelled'
+                : rawStatus === 'on_hold'
+                ? 'On Hold'
+                : rawStatus === 'in_progress' || rawStatus === 'active'
+                ? 'In Progress'
+                : 'Not Started';
             const dbTasks = tasksByProject[String(project.id)] || [];
             const jsonTasks = (project.tasks || []) as Task[];
             const tasks =
@@ -306,8 +315,8 @@ export class DataAdapter {
         return []; // Pas de fallback vers mockProjects
       }
     }
-    vlog('🔄 DataAdapter.getProjects - Utilisation des données mockées (useSupabase=false)');
-    return mockProjects;
+    vlog('⚠️ DataAdapter.getProjects - useSupabase=false, retour vide (pas de données locales fictives)');
+    return [];
   }
 
   static async createProject(project: Partial<Project>): Promise<Project | null> {
@@ -354,7 +363,7 @@ export class DataAdapter {
             id: data.id,
             title: data.name,
             description: data.description || '',
-            status: data.status || 'not_started',
+            status: data.status || 'Not Started',
             priority: data.priority || 'medium',
             dueDate: data.end_date,
             startDate: data.start_date,
@@ -377,24 +386,7 @@ export class DataAdapter {
         return null;
       }
     }
-    // Fallback vers mock data
-    const newProject: Project = {
-      id: crypto.randomUUID(),
-      title: project.title || '',
-      description: project.description || '',
-      status: project.status || 'not_started',
-      priority: project.priority || 'medium',
-      dueDate: project.dueDate,
-      startDate: project.startDate,
-      budget: project.budget,
-      clientName: project.clientName || '',
-      team: project.team || [],
-      tasks: project.tasks || [],
-      risks: project.risks || [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    return newProject;
+    return null;
   }
 
   static async updateProject(project: Project): Promise<boolean> {
@@ -404,9 +396,10 @@ export class DataAdapter {
         
         // Convertir le projet vers le format Supabase
         const teamMemberIds = project.team?.map(member => {
+          const memberId = member.id;
           // Si c'est déjà un UUID valide, l'utiliser tel quel
-          if (member.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(member.id)) {
-            return member.id;
+          if (memberId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(memberId))) {
+            return String(memberId);
           }
           // Générer un vrai UUID
           return crypto.randomUUID();
@@ -460,7 +453,7 @@ export class DataAdapter {
         return false;
       }
     }
-    vlog('🔄 DataAdapter.updateProject - Utilisation des données mockées (useSupabase=false)');
+    vlog('⚠️ DataAdapter.updateProject - useSupabase=false, abandon');
     return false;
   }
 
@@ -479,7 +472,7 @@ export class DataAdapter {
         return false;
       }
     }
-    vlog('🔄 DataAdapter.deleteProject - Utilisation des données mockées (useSupabase=false)');
+    vlog('⚠️ DataAdapter.deleteProject - useSupabase=false, abandon');
     return false;
   }
 
@@ -489,8 +482,9 @@ export class DataAdapter {
       try {
         const { data, error } = await DataService.getInvoices();
         if (error) throw error;
-        
-        const invoices = data?.map((invoice: any) => {
+
+        const invoiceRows = Array.isArray(data) ? data : [];
+        const invoices = invoiceRows.map((invoice: any) => {
           let normalizedStatus: Invoice['status'] = 'Draft';
           const status = effectiveInvoiceStatusFromRow(invoice);
           if (status === 'sent') normalizedStatus = 'Sent';
@@ -500,25 +494,29 @@ export class DataAdapter {
           else normalizedStatus = 'Draft';
 
           return {
-          id: invoice.id,
+            id: invoice.id,
             invoiceNumber: invoice.invoice_number || invoice.number || '',
             clientName: invoice.client_name || '',
             amount: Number(invoice.amount) || 0,
+            vatAmount: invoice.tax != null ? Number(invoice.tax) : undefined,
+            totalAmount: invoice.total != null ? Number(invoice.total) : undefined,
             currencyCode: (invoice.currency_code || 'USD') as CurrencyCode,
             exchangeRate: invoice.exchange_rate ? Number(invoice.exchange_rate) : undefined,
             baseAmountUSD: invoice.base_amount_usd ? Number(invoice.base_amount_usd) : undefined,
             transactionDate: invoice.transaction_date || invoice.due_date || undefined,
             dueDate: invoice.due_date || '',
             status: normalizedStatus,
-            receipt: invoice.receipt_file_name && invoice.receipt_data_url ? {
-              fileName: invoice.receipt_file_name,
-              dataUrl: invoice.receipt_data_url
-            } : undefined,
+            receipt: invoice.receipt_file_name && invoice.receipt_data_url
+              ? {
+                  fileName: invoice.receipt_file_name,
+                  dataUrl: invoice.receipt_data_url,
+                }
+              : undefined,
             paidDate: invoice.paid_date || undefined,
             paidAmount: invoice.paid_amount ? Number(invoice.paid_amount) : undefined,
             recurringSourceId: invoice.recurring_source_id || undefined,
             createdById: invoice.user_id || invoice.created_by || undefined,
-            createdByName: invoice.created_by_name || undefined
+            createdByName: invoice.created_by_name || undefined,
           };
         }) || [];
         
@@ -554,26 +552,30 @@ export class DataAdapter {
         else if (status === 'partially_paid') normalizedStatus = 'Partially Paid';
         else normalizedStatus = 'Draft';
 
-        const convertedInvoice = {
+        const convertedInvoice: Invoice = {
           id: data.id,
           invoiceNumber: data.number || data.invoice_number || '',
           clientName: data.client_name || '',
           amount: Number(data.amount) || 0,
+          vatAmount: data.tax != null ? Number(data.tax) : undefined,
+          totalAmount: data.total != null ? Number(data.total) : undefined,
           currencyCode: (data.currency_code || 'USD') as CurrencyCode,
           exchangeRate: data.exchange_rate ? Number(data.exchange_rate) : undefined,
           baseAmountUSD: data.base_amount_usd ? Number(data.base_amount_usd) : undefined,
           transactionDate: data.transaction_date || data.due_date || undefined,
           dueDate: data.due_date || '',
           status: normalizedStatus,
-          receipt: data.receipt_file_name && data.receipt_data_url ? {
-            fileName: data.receipt_file_name,
-            dataUrl: data.receipt_data_url
-          } : undefined,
+          receipt: data.receipt_file_name && data.receipt_data_url
+            ? {
+                fileName: data.receipt_file_name,
+                dataUrl: data.receipt_data_url,
+              }
+            : undefined,
           paidDate: data.paid_date || undefined,
           paidAmount: data.paid_amount ? Number(data.paid_amount) : undefined,
           recurringSourceId: data.recurring_source_id || undefined,
           createdById: data.user_id || data.created_by || undefined,
-          createdByName: data.created_by_name || undefined
+          createdByName: data.created_by_name || undefined,
         };
         
         return convertedInvoice;
@@ -632,17 +634,21 @@ CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'partially_paid') OR statu
           invoiceNumber: data.invoice_number || data.number || '',
           clientName: data.client_name || '',
           amount: Number(data.amount) || 0,
+          vatAmount: data.tax != null ? Number(data.tax) : undefined,
+          totalAmount: data.total != null ? Number(data.total) : undefined,
           dueDate: data.due_date || '',
           status: normalizedStatus,
-          receipt: data.receipt_file_name && data.receipt_data_url ? {
-            fileName: data.receipt_file_name,
-            dataUrl: data.receipt_data_url
-          } : undefined,
+          receipt: data.receipt_file_name && data.receipt_data_url
+            ? {
+                fileName: data.receipt_file_name,
+                dataUrl: data.receipt_data_url,
+              }
+            : undefined,
           paidDate: data.paid_date || undefined,
           paidAmount: data.paid_amount ? Number(data.paid_amount) : undefined,
           recurringSourceId: data.recurring_source_id || undefined,
           createdById: data.user_id || data.created_by || undefined,
-          createdByName: data.created_by_name || undefined
+          createdByName: data.created_by_name || undefined,
         };
       } catch (error) {
         console.error('❌ Erreur Supabase mise à jour facture:', error);
@@ -1228,25 +1234,7 @@ CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'partially_paid') OR statu
         return null;
       }
     }
-    // Fallback vers mock data
-    const name =
-      (contact as Partial<Contact>).name ||
-      `${(contact as any).firstName || ''} ${(contact as any).lastName || ''}`.trim() ||
-      'Contact';
-    const newContact: Contact = {
-      id: Date.now(),
-      name,
-      workEmail: (contact as Partial<Contact>).workEmail || (contact as any).email || '',
-      personalEmail: (contact as Partial<Contact>).personalEmail,
-      company: (contact as Partial<Contact>).company || 'N/A',
-      status: (this.mapContactStatus(String((contact as Partial<Contact>).status || 'lead')) as Contact['status']),
-      avatar: `https://picsum.photos/seed/mock-${Date.now()}/100/100`,
-      officePhone: (contact as Partial<Contact>).officePhone,
-      mobilePhone: (contact as Partial<Contact>).mobilePhone,
-      whatsappNumber: (contact as Partial<Contact>).whatsappNumber,
-      categoryId: (contact as Partial<Contact>).categoryId,
-    };
-    return newContact;
+    return null;
   }
 
   static async updateContact(id: string | number, updates: Contact): Promise<Contact | null> {
@@ -1261,7 +1249,7 @@ CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'partially_paid') OR statu
         return null;
       }
     }
-    return { ...updates, id } as Contact;
+    return null;
   }
 
   static async deleteContact(id: string | number): Promise<boolean> {
@@ -1275,7 +1263,7 @@ CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'partially_paid') OR statu
         return false;
       }
     }
-    return true;
+    return false;
   }
 
   // ===== COURSES =====
@@ -1679,10 +1667,10 @@ CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'partially_paid') OR statu
         return objectives;
       } catch (error) {
         console.error('❌ Erreur Supabase objectifs:', error);
-        return mockGoals;
+        return [];
       }
     }
-    return mockGoals;
+    return [];
   }
 
   static async createObjective(objective: Omit<Objective, 'id'>): Promise<Objective | null> {
@@ -2339,10 +2327,13 @@ CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'partially_paid') OR statu
       // Récupérer tous les profils nécessaires pour mapper userName et userAvatar
       const userIds = [...new Set(data.map(r => r.user_id))];
       const { data: profiles } = await DataService.getProfiles();
-      const profilesMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      const profileRows = (profiles || []) as Array<{ id: string; full_name?: string | null; avatar_url?: string | null }>;
+      const profilesMap = new Map<string, { id: string; full_name?: string | null; avatar_url?: string | null }>(
+        profileRows.map((p) => [p.id, p]),
+      );
 
       const leaveRequests: LeaveRequest[] = (data || []).map((request: any) => {
-        const profile = profilesMap.get(request.user_id);
+        const profile = profilesMap.get(request.user_id as string);
         return {
           id: request.id || '', // UUID string
           userId: request.user_id || '', // UUID string (profile.id)
@@ -2577,7 +2568,7 @@ CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'partially_paid') OR statu
       }
       return {
         user: this.mapProfileToUser(result.data),
-        departmentAssignmentFailed: Boolean(result.departmentAssignmentFailed)
+        departmentAssignmentFailed: Boolean((result as any).departmentAssignmentFailed),
       };
     } catch (error) {
       console.error('❌ Erreur approbation profil:', error);
@@ -3001,7 +2992,7 @@ CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'partially_paid') OR statu
         return []; // Pas de fallback vers mockJobs
       }
     }
-    vlog('🔄 DataAdapter.getJobs - Utilisation des données mockées (useSupabase=false)');
+    vlog('⚠️ DataAdapter.getJobs - useSupabase=false, retour vide');
     return [];
   }
 

@@ -14,9 +14,10 @@ export function isLikelyPostgrestSelectError(error: unknown): boolean {
   const status = Number(e.status);
   const code = String(e.code ?? '');
   const blob = [e.message, e.details, e.hint].filter(Boolean).join(' ').toLowerCase();
-  if (status === 400 && (code === 'PGRST204' || code === '42703')) return true;
+  if (status === 400 && (code === 'PGRST204' || code === 'PGRST200' || code === '42703')) return true;
   if (blob.includes('schema cache') && blob.includes('column')) return true;
   if (blob.includes('could not find') && blob.includes('column')) return true;
+  if (blob.includes('could not find') && blob.includes('relationship')) return true;
   if (/column\s+[\w.]+\s+does\s+not\s+exist/.test(blob)) return true;
   return false;
 }
@@ -120,7 +121,8 @@ export class ApiHelper {
     } catch (error: any) {
       if (error.name === 'AbortError') {
         console.error(`⏱️ Timeout API GET ${endpoint} - Réponse non reçue dans les 10 secondes`);
-      } else {
+      } else if (!isLikelyPostgrestSelectError(error)) {
+        // Erreurs « colonne / select / embed » : laisser l’appelant enchaîner des variantes sans bruit console.
         console.error(`❌ Erreur API GET ${endpoint}:`, error.message || error);
       }
       return { data: null, error };

@@ -32,18 +32,16 @@ const ProjectRepartitionDonut: React.FC<ProjectRepartitionDonutProps> = ({
   const total = slices.reduce((s, x) => s + x.value, 0);
   const displayCenter = centerLabel != null ? String(centerLabel) : String(total);
 
-  const conicParts = slices
-    .filter((s) => s.percentage > 0)
-    .reduce<{ acc: number; parts: string[] }>(
-      (prev, slice) => {
-        const start = prev.acc;
-        const end = prev.acc + slice.percentage;
-        prev.parts.push(`${slice.color} ${start}% ${end}%`);
-        prev.acc = end;
-        return prev;
-      },
-      { acc: 0, parts: [] }
-    );
+  const conicParts = slices.filter((s) => s.percentage > 0).reduce(
+    (prev: { acc: number; parts: string[] }, slice) => {
+      const start = prev.acc;
+      const end = prev.acc + slice.percentage;
+      prev.parts.push(`${slice.color} ${start}% ${end}%`);
+      prev.acc = end;
+      return prev;
+    },
+    { acc: 0, parts: [] as string[] },
+  );
 
   const conicGradient =
     conicParts.parts.length > 0

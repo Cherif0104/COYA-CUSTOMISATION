@@ -1,6 +1,5 @@
 import { supabase } from './supabaseService';
 import { RealtimeService } from './realtimeService';
-import ApiHelper from './apiHelper';
 import { DataService } from './dataService';
 
 export interface Notification {

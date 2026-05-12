@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import VehicleRequestDetailPage from './VehicleRequestDetailPage';
+import { fleetDesignTokens } from './fleetDesignTokens';
 import { useLocalization } from '../../../contexts/LocalizationContext';
 import { useModulePermissions } from '../../../hooks/useModulePermissions';
 import * as parcAutoService from '../../../services/parcAutoService';
@@ -23,6 +25,7 @@ import OrganizationService from '../../../services/organizationService';
 import { useAuth } from '../../../contexts/AuthContextSupabase';
 import * as programmeService from '../../../services/programmeService';
 import type { Programme } from '../../../types';
+import ModuleRichHub from '../../common/ModuleRichHub';
 
 function randomIdPart(): string {
   return typeof globalThis.crypto !== 'undefined' && 'randomUUID' in globalThis.crypto
@@ -79,6 +82,25 @@ function expectedN1ApproverId(
   managerByRequester: Map<string, string | null>,
 ): string | null {
   return r.designatedApproverProfileId || managerByRequester.get(r.requesterId) || null;
+}
+
+function readVehicleRequestIdFromUrl(): string | null {
+  try {
+    return new URL(window.location.href).searchParams.get(parcAutoService.VEHICLE_REQUEST_URL_PARAM);
+  } catch {
+    return null;
+  }
+}
+
+function syncVehicleRequestUrl(id: string | null) {
+  try {
+    const u = new URL(window.location.href);
+    if (id) u.searchParams.set(parcAutoService.VEHICLE_REQUEST_URL_PARAM, id);
+    else u.searchParams.delete(parcAutoService.VEHICLE_REQUEST_URL_PARAM);
+    window.history.replaceState({}, '', u.toString());
+  } catch {
+    /* ignore */
+  }
 }
 
 const ParcAutoModule: React.FC = () => {
@@ -155,6 +177,9 @@ const ParcAutoModule: React.FC = () => {
   const [expandedVehicleId, setExpandedVehicleId] = useState<string | null>(null);
   const [vehiclePhotos, setVehiclePhotos] = useState<Record<string, VehiclePhotoRow[]>>({});
   const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
+  const [detailRequestId, setDetailRequestId] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? readVehicleRequestIdFromUrl() : null,
+  );
   const [requestTransitions, setRequestTransitions] = useState<VehicleRequestTransition[]>([]);
   const [fleetBillingDraft, setFleetBillingDraft] = useState({
     quotedPriceCents: '',
@@ -181,6 +206,19 @@ const ParcAutoModule: React.FC = () => {
   const canApproveModule = useMemo(() => hasPermission('parc_auto', 'approve'), [hasPermission]);
   const isFleetRole =
     (user?.role && ['super_administrator', 'administrator', 'manager'].includes(user.role)) || canWrite || canApproveModule;
+
+  const [fleetPortfolioTab, setFleetPortfolioTab] = useState<'enterprise' | 'partners'>('enterprise');
+
+  const fleetKpis = useMemo(
+    () => ({
+      vehiclesTotal: vehicles.length,
+      vehiclesActive: vehicles.filter((x) => x.isActive).length,
+      partnerCompaniesActive: partnerCompanies.filter((c) => c.active).length,
+      partnerVehiclesActive: partnerVehicles.filter((v) => v.active).length,
+      requestsOpen: requests.filter((x) => !['returned', 'rejected'].includes(x.status)).length,
+    }),
+    [vehicles, partnerCompanies, partnerVehicles, requests],
+  );
 
   const myProfileId = user?.profileId ?? null;
 
@@ -220,6 +258,32 @@ const ParcAutoModule: React.FC = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const onPop = () => {
+      setDetailRequestId(readVehicleRequestIdFromUrl());
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  const openRequestDetail = (id: string) => {
+    setDetailRequestId(id);
+    syncVehicleRequestUrl(id);
+  };
+
+  const closeRequestDetail = () => {
+    setDetailRequestId(null);
+    syncVehicleRequestUrl(null);
+  };
+
+  const detailListRow = useMemo(
+    () => (detailRequestId ? requests.find((x) => x.id === detailRequestId) : undefined),
+    [requests, detailRequestId],
+  );
+  const detailListSignal = detailListRow
+    ? `${detailListRow.updatedAt ?? ''}|${detailListRow.status}|${detailListRow.quotedPriceCents ?? ''}`
+    : null;
 
   useEffect(() => {
     const bid = formVehicle.catalogBrandId;
@@ -562,17 +626,29 @@ const ParcAutoModule: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center gap-2 text-slate-500 p-8">
-        <span className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-500 border-t-transparent" />
-        <span>{isFr ? 'Chargement...' : 'Loading...'}</span>
-      </div>
-    );
-  }
-
   return (
-    <div className="p-6 space-y-6 text-gray-900">
+    <>
+      {detailRequestId ? (
+        <VehicleRequestDetailPage
+          requestId={detailRequestId}
+          listRowSignal={detailListSignal}
+          onBack={closeRequestDetail}
+          isFr={isFr}
+          orgId={orgId}
+          myProfileId={myProfileId}
+          managerByRequester={managerByRequester}
+          isFleetRole={!!isFleetRole}
+          onUpdateRequestStatus={handleUpdateRequestStatus}
+          onOpenHandover={openHandover}
+          onAfterMutation={load}
+        />
+      ) : loading ? (
+        <div className="flex items-center gap-2 text-slate-500 p-8">
+          <span className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-500 border-t-transparent" />
+          <span>{isFr ? 'Chargement...' : 'Loading...'}</span>
+        </div>
+      ) : (
+        <div className="p-6 space-y-6 text-gray-900">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -587,7 +663,116 @@ const ParcAutoModule: React.FC = () => {
         </div>
       </div>
 
-      {isFleetRole && (
+      <ModuleRichHub
+        isFr={isFr}
+        excludeViews={['parc_auto']}
+        metrics={[
+          {
+            labelFr: 'Véhicules',
+            labelEn: 'Vehicles',
+            value: String(vehicles.length),
+            hintFr: 'Flotte interne + affectations',
+            hintEn: 'Internal fleet + assignments',
+          },
+          {
+            labelFr: 'Demandes mobilité',
+            labelEn: 'Mobility requests',
+            value: String(requests.length),
+            hintFr: 'Tous statuts',
+            hintEn: 'All statuses',
+          },
+          {
+            labelFr: 'En cours de traitement',
+            labelEn: 'In progress',
+            value: String(
+              requests.filter((r) => !['returned', 'rejected'].includes(r.status)).length,
+            ),
+            hintFr: 'Hors retournées / refusées',
+            hintEn: 'Excluding returned / rejected',
+          },
+          {
+            labelFr: 'Programmes liés',
+            labelEn: 'Linked programmes',
+            value: String(programmes.length),
+            hintFr: 'Rattachement mission',
+            hintEn: 'Mission linkage',
+          },
+        ]}
+        sections={[
+          {
+            key: 'fleet',
+            titleFr: 'Parc & autres vues',
+            titleEn: 'Fleet & related views',
+            icon: 'fas fa-car',
+            bulletsFr: [
+              'Planning : créneaux et missions synchronisés lorsque disponibles.',
+              'Logistique : équipements non véhicules (complémentaire).',
+              'Moyens généraux : demandes déplacement / mission.',
+            ],
+            bulletsEn: [
+              'Planning: slots and missions when synced.',
+              'Logistics: non-vehicle equipment (complementary).',
+              'General services: travel / mission requests.',
+            ],
+          },
+        ]}
+      />
+
+      <div className={`${fleetDesignTokens.surfaceCard} p-4 mb-2`}>
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-3 mb-3">
+          <button
+            type="button"
+            onClick={() => setFleetPortfolioTab('enterprise')}
+            className={`rounded-full px-4 py-2 text-xs font-semibold border transition-colors ${
+              fleetPortfolioTab === 'enterprise'
+                ? 'border-emerald-600 bg-emerald-50 text-emerald-900'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <i className="fas fa-building mr-2" aria-hidden />
+            {isFr ? 'Flotte entreprise' : 'Enterprise fleet'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setFleetPortfolioTab('partners')}
+            className={`rounded-full px-4 py-2 text-xs font-semibold border transition-colors ${
+              fleetPortfolioTab === 'partners'
+                ? 'border-emerald-600 bg-emerald-50 text-emerald-900'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <i className="fas fa-handshake mr-2" aria-hidden />
+            {isFr ? 'Prestataires & partenaires' : 'Partners & contractors'}
+          </button>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+          <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3">
+            <div className="text-[10px] uppercase text-slate-400">{isFr ? 'Véhicules' : 'Vehicles'}</div>
+            <div className="text-lg font-bold text-slate-900">{fleetKpis.vehiclesTotal}</div>
+            <div className="text-[10px] text-slate-500">{isFr ? `Actifs ${fleetKpis.vehiclesActive}` : `Active ${fleetKpis.vehiclesActive}`}</div>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3">
+            <div className="text-[10px] uppercase text-slate-400">{isFr ? 'Prestataires' : 'Partners'}</div>
+            <div className="text-lg font-bold text-slate-900">{fleetKpis.partnerCompaniesActive}</div>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3">
+            <div className="text-[10px] uppercase text-slate-400">{isFr ? 'Véh. partenaires' : 'Partner veh.'}</div>
+            <div className="text-lg font-bold text-slate-900">{fleetKpis.partnerVehiclesActive}</div>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3">
+            <div className="text-[10px] uppercase text-slate-400">{isFr ? 'Demandes ouvertes' : 'Open requests'}</div>
+            <div className="text-lg font-bold text-slate-900">{fleetKpis.requestsOpen}</div>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 hidden sm:block">
+            <div className="text-[10px] uppercase text-slate-400">{isFr ? 'Disponibilité' : 'Availability'}</div>
+            <div className="text-xs font-medium text-slate-700 mt-1">
+              {isFr ? 'Indicateur bientôt (occupation).' : 'Indicator soon (utilization).'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {fleetPortfolioTab === 'partners' && (
         <section className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6">
           <div className="px-4 py-3 border-b border-slate-200">
             <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
@@ -595,7 +780,9 @@ const ParcAutoModule: React.FC = () => {
               {isFr ? 'Prestataires transport' : 'Transport partners'}
             </h2>
           </div>
-          <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="p-4 space-y-4">
+            {isFleetRole ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <form
               className="space-y-2 p-3 bg-slate-50 rounded-lg border border-slate-200"
               onSubmit={async (e) => {
@@ -718,10 +905,84 @@ const ParcAutoModule: React.FC = () => {
               </button>
             </form>
           </div>
+            ) : (
+              <p className="text-sm text-slate-500">
+                {isFr
+                  ? 'Catalogue prestataires en lecture seule. Contactez un gestionnaire parc pour ajouter des entrées.'
+                  : 'Partner catalog is read-only. Ask a fleet manager to add entries.'}
+              </p>
+            )}
+          <div className="space-y-4 border-t border-slate-100 pt-4">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-800 mb-2">{isFr ? 'Entreprises partenaires' : 'Partner companies'}</h3>
+              {partnerCompanies.length === 0 ? (
+                <p className="text-xs text-slate-500">{isFr ? 'Aucun prestataire.' : 'No partner companies.'}</p>
+              ) : (
+                <div className="border border-slate-200 rounded-xl overflow-x-auto bg-white">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">{isFr ? 'Nom' : 'Name'}</th>
+                        <th className="px-3 py-2">Email</th>
+                        <th className="px-3 py-2">{isFr ? 'Tél.' : 'Phone'}</th>
+                        <th className="px-3 py-2">{isFr ? 'Actif' : 'Active'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {partnerCompanies.map((c) => (
+                        <tr key={c.id}>
+                          <td className="px-3 py-2 font-medium text-slate-900">{c.name}</td>
+                          <td className="px-3 py-2 text-slate-600">{c.contactEmail || '—'}</td>
+                          <td className="px-3 py-2 text-slate-600">{c.phone || '—'}</td>
+                          <td className="px-3 py-2">{c.active ? (isFr ? 'Oui' : 'Yes') : (isFr ? 'Non' : 'No')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-800 mb-2">{isFr ? 'Véhicules catalogue partenaires' : 'Partner catalog vehicles'}</h3>
+              {partnerVehicles.length === 0 ? (
+                <p className="text-xs text-slate-500">{isFr ? 'Aucun véhicule partenaire.' : 'No partner vehicles.'}</p>
+              ) : (
+                <div className="border border-slate-200 rounded-xl overflow-x-auto bg-white">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">{isFr ? 'Prestataire' : 'Partner'}</th>
+                        <th className="px-3 py-2">{isFr ? 'Libellé' : 'Label'}</th>
+                        <th className="px-3 py-2">{isFr ? 'Immat.' : 'Plate'}</th>
+                        <th className="px-3 py-2">{isFr ? 'Places' : 'Seats'}</th>
+                        <th className="px-3 py-2">{isFr ? 'Actif' : 'Active'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {partnerVehicles.map((pv) => {
+                        const cn = partnerCompanies.find((x) => x.id === pv.partnerCompanyId)?.name || '—';
+                        return (
+                          <tr key={pv.id}>
+                            <td className="px-3 py-2 text-slate-700">{cn}</td>
+                            <td className="px-3 py-2 font-medium text-slate-900">{pv.label}</td>
+                            <td className="px-3 py-2 text-slate-600">{pv.plateNumber || '—'}</td>
+                            <td className="px-3 py-2 text-slate-600">{pv.seats ?? '—'}</td>
+                            <td className="px-3 py-2">{pv.active ? (isFr ? 'Oui' : 'Yes') : (isFr ? 'Non' : 'No')}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+          </div>
         </section>
       )}
 
-      <section className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6">
+      {fleetPortfolioTab === 'enterprise' && (
+        <section className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6">
         <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
             <i className="fas fa-car text-emerald-600" />
@@ -1098,6 +1359,7 @@ const ParcAutoModule: React.FC = () => {
           )}
         </div>
       </section>
+      )}
 
       <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
@@ -1698,6 +1960,9 @@ const ParcAutoModule: React.FC = () => {
         </div>
       )}
 
+        </div>
+      )}
+
       {handoverModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-xl border border-slate-200 max-w-md w-full p-4 shadow-xl space-y-3">
@@ -1762,7 +2027,7 @@ const ParcAutoModule: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

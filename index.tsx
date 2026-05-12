@@ -1,9 +1,10 @@
-import React, { Component } from 'react';
+import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContextSupabase';
 import { LocalizationProvider } from './contexts/LocalizationContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { PresenceProvider } from './contexts/PresenceContext';
 import './src/index.css';
 import {
   ChainedActivityEventPersistence,
@@ -33,7 +34,7 @@ if (import.meta.env.DEV) {
   });
 }
 
-class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: Error | null }> {
+class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null };
 
   static getDerivedStateFromError(error: Error) {
@@ -49,7 +50,7 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: Er
       body: JSON.stringify({
         sessionId: '5fe008',
         hypothesisId: 'H_ERR',
-        location: 'index.tsx:ErrorBoundary.componentDidCatch',
+        location: 'index.tsx:AppErrorBoundary.componentDidCatch',
         message: 'react_render_error',
         data: {
           name: error?.name,
@@ -75,14 +76,14 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: Er
           <button
             type="button"
             style={{ marginTop: 16, padding: '8px 16px', cursor: 'pointer' }}
-            onClick={() => this.setState({ error: null })}
+            onClick={() => (this as any).setState({ error: null })}
           >
             Réessayer
           </button>
         </div>
       );
     }
-    return this.props.children;
+    return (this as any).props.children;
   }
 }
 
@@ -104,12 +105,14 @@ window.__COYA_APP_ROOT__ = root;
 // sinon ErrorBoundary remplace tout le sous-arbre et les hooks (useLocalization) perdent leur provider.
 root.render(
   <LocalizationProvider>
-    <ErrorBoundary>
+    <AppErrorBoundary>
       <AuthProvider>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
+        <PresenceProvider>
+          <ThemeProvider>
+            <App />
+          </ThemeProvider>
+        </PresenceProvider>
       </AuthProvider>
-    </ErrorBoundary>
+    </AppErrorBoundary>
   </LocalizationProvider>
 );

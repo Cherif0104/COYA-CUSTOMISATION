@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocalization } from '../../../contexts/LocalizationContext';
 import * as studioService from '../../../services/studioService';
+import ModuleRichHub from '../../common/ModuleRichHub';
 
 type TabKey = 'overview' | 'assets' | 'investments' | 'pricing' | 'requests' | 'contracts' | 'team';
 
@@ -92,6 +93,59 @@ const StudioModule: React.FC = () => {
           </div>
         </div>
       </header>
+
+      <ModuleRichHub
+        isFr={isFr}
+        excludeViews={['studio']}
+        metrics={[
+          {
+            labelFr: 'Actifs studio',
+            labelEn: 'Studio assets',
+            value: String(dashboard.assets.length),
+            hintFr: 'Équipements suivis',
+            hintEn: 'Tracked equipment',
+          },
+          {
+            labelFr: 'Demandes / devis ouverts',
+            labelEn: 'Open quotes / requests',
+            value: String(metrics.pendingBookings),
+            hintFr: 'Statuts requested + quoted',
+            hintEn: 'requested + quoted statuses',
+          },
+          {
+            labelFr: 'Règles tarifaires actives',
+            labelEn: 'Active pricing rules',
+            value: String(metrics.activePricing),
+            hintFr: 'Tarification location / prestation',
+            hintEn: 'Rental / service pricing',
+          },
+          {
+            labelFr: 'Valeur nette comptable',
+            labelEn: 'Net book value',
+            value: money(metrics.netValue),
+            hintFr: 'Amortissements intégrés',
+            hintEn: 'Depreciation included',
+          },
+        ]}
+        sections={[
+          {
+            key: 'studio-links',
+            titleFr: 'Studio dans l’écosystème',
+            titleEn: 'Studio in the ecosystem',
+            icon: 'fas fa-video',
+            bulletsFr: [
+              'APEX : contenus pédagogiques et médias de formation.',
+              'Logistique : matériel partagé hors tournage (stock).',
+              'Drive : masters export et livrables clients.',
+            ],
+            bulletsEn: [
+              'APEX: learning content and training media.',
+              'Logistics: shared non-shoot equipment (stock).',
+              'Drive: export masters and client deliverables.',
+            ],
+          },
+        ]}
+      />
 
       <nav className="flex gap-2 overflow-x-auto rounded-xl border border-slate-200 bg-white p-2">
         {tabs.map((tab) => (

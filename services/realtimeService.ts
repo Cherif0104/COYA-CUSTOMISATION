@@ -357,15 +357,15 @@ export class RealtimeService {
     payload: any
   ) {
     try {
-      const { error } = await supabase
-        .channel(channel)
-        .send({
-          type: 'broadcast',
-          event: event,
-          payload: payload
-        });
+      const status = await supabase.channel(channel).send({
+        type: 'broadcast',
+        event,
+        payload,
+      });
 
-      if (error) throw error;
+      if (status !== 'ok') {
+        throw new Error(`Supabase Realtime broadcast failed with status: ${status}`);
+      }
       return { error: null };
     } catch (error) {
       console.error('Erreur broadcast:', error);

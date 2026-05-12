@@ -30,6 +30,7 @@ const VIEW_LABELS: Record<string, string> = {
   ...moduleDisplayNames,
   programmes_projects: 'Programmes & Projets',
   formation: moduleDisplayNames.courses,
+  apex: moduleDisplayNames.courses,
   course_detail: moduleDisplayNames.courses,
   goals: 'Objectifs',
   employee_workspace: 'Espace salarié',
@@ -105,8 +106,11 @@ const Header: React.FC<HeaderProps> = ({
           <input
             type="text"
             placeholder={
-              currentView === 'formation' || currentView === 'courses' || currentView?.startsWith('course')
-                ? 'Rechercher une formation, un apprenant…'
+              currentView === 'apex' ||
+              currentView === 'formation' ||
+              currentView === 'courses' ||
+              currentView?.startsWith('course')
+                ? 'Rechercher un parcours APEX, un apprenant…'
                 : 'Rechercher…'
             }
             className="w-full bg-transparent text-sm text-gray-600 placeholder-gray-400 outline-none border-0 p-0 focus:ring-0"

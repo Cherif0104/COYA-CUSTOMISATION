@@ -62,7 +62,7 @@ const StrategyGovernanceHub: React.FC<StrategyGovernanceHubProps> = ({
     () =>
       Object.entries(programmeNames)
         .map(([id, name]) => ({ id, name: name || id }))
-        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
+        .sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' })),
     [programmeNames],
   );
 

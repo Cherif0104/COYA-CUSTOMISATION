@@ -5,6 +5,10 @@ import {
   listLocalCatalogModelsForBrand,
   parseLocalBrandId,
 } from './vehicleCatalogLocal';
+import {
+  deleteVehicleRequestPlanningSlots,
+  syncVehicleRequestPlanningSlot,
+} from './planning/vehicleRequestPlanningSync';
 
 export {
   isLocalCatalogBrandId,
@@ -12,10 +16,6 @@ export {
   parseLocalBrandId,
   parseLocalCatalogModelMeta,
 } from './vehicleCatalogLocal';
-import {
-  deleteVehicleRequestPlanningSlots,
-  syncVehicleRequestPlanningSlot,
-} from './planning/vehicleRequestPlanningSync';
 
 export type VehicleRequestStatus =
   | 'pending_n1'
@@ -180,6 +180,45 @@ export interface VehicleRequestTransition {
   actorProfileId?: string | null;
   createdAt: string;
   meta: Record<string, unknown>;
+}
+
+export interface VehicleHandoverReport {
+  id: string;
+  vehicleRequestId: string;
+  phase: 'checkout' | 'checkin';
+  odometer: number | null;
+  fuelLevelPercent: number | null;
+  conditionNotes: string | null;
+  maintenanceFlag: boolean;
+  recordedByProfileId: string;
+  recordedAt: string;
+}
+
+export interface LogisticsAuditEvent {
+  id: string;
+  organizationId: string;
+  subjectType: string;
+  subjectId: string;
+  actorProfileId: string | null;
+  eventType: string;
+  details: Record<string, unknown>;
+  createdAt: string;
+}
+
+/** Paramètre d’URL pour ouvrir une fiche demande depuis Parc Auto (`?vehicleRequest=<uuid>`). */
+export const VEHICLE_REQUEST_URL_PARAM = 'vehicleRequest';
+
+export interface VehicleRequestDetailBundle {
+  request: VehicleRequest;
+  transitions: VehicleRequestTransition[];
+  handovers: VehicleHandoverReport[];
+  auditEvents: LogisticsAuditEvent[];
+  vehicle: Vehicle | null;
+  partnerVehicle: TransportPartnerVehicle | null;
+  partnerCompany: TransportPartnerCompany | null;
+  photos: VehiclePhotoRow[];
+  /** Profils indexés par id (demandeur, acteurs workflow, audit, etc.) */
+  profilesById: Map<string, ProfileOption>;
 }
 
 export interface OrgProjectRow {
@@ -470,22 +509,42 @@ export async function createVehicleCatalogModel(params: {
 
 export async function listOrgProjects(organizationId: string): Promise<OrgProjectRow[]> {
   try {
-    const q = (cols: string) =>
-      supabase.from('projects').select(cols).eq('organization_id', organizationId).order('title');
+    type Row = { id: unknown; title?: unknown; programme_id?: unknown; name?: unknown };
+    const mapRows = (rows: Row[]): OrgProjectRow[] =>
+      rows.map((r) => ({
+        id: String(r.id),
+        title: (r.title != null ? String(r.title) : r.name != null ? String(r.name) : '') || '—',
+        programmeId: (r.programme_id as string | null | undefined) ?? null,
+      }));
 
-    let { data, error } = await q('id,title,programme_id');
-    // Schémas sans colonne programme_id → éviter 400 PostgREST sur Parc Auto / logistique.
-    if (error) {
-      const fb = await q('id,title');
-      data = fb.data;
-      error = fb.error;
+    const attempts = [
+      () =>
+        supabase
+          .from('projects')
+          .select('id,title,programme_id')
+          .eq('organization_id', organizationId)
+          .order('title'),
+      () =>
+        supabase.from('projects').select('id,title').eq('organization_id', organizationId).order('title'),
+      () =>
+        supabase.from('projects').select('id,name,programme_id').eq('organization_id', organizationId).order('name'),
+      () => supabase.from('projects').select('id,name').eq('organization_id', organizationId).order('name'),
+      () =>
+        supabase.from('projects').select('id,title,programme_id').eq('org_id', organizationId).order('title'),
+      () => supabase.from('projects').select('id,title').eq('org_id', organizationId).order('title'),
+      () =>
+        supabase.from('projects').select('id,title,programme_id').eq('organization_id', organizationId),
+      () => supabase.from('projects').select('id,title').eq('organization_id', organizationId),
+      () =>
+        supabase.from('projects').select('id,title,programme_id').eq('org_id', organizationId),
+      () => supabase.from('projects').select('id,title').eq('org_id', organizationId),
+    ];
+
+    for (const build of attempts) {
+      const { data, error } = await build();
+      if (!error && data) return mapRows(data as Row[]);
     }
-    if (error || !data) return [];
-    return data.map((r: Record<string, unknown>) => ({
-      id: r.id as string,
-      title: (r.title as string) || '—',
-      programmeId: (r.programme_id as string) ?? null,
-    }));
+    return [];
   } catch {
     return [];
   }
@@ -1178,5 +1237,202 @@ export async function patchVehicleRequestFleetFields(
   } catch (e) {
     console.error('parcAutoService.patchVehicleRequestFleetFields:', e);
     return false;
+  }
+}
+
+export async function listVehicleHandoverReports(requestId: string): Promise<VehicleHandoverReport[]> {
+  try {
+    const { data, error } = await supabase
+      .from('vehicle_handover_reports')
+      .select('*')
+      .eq('vehicle_request_id', requestId)
+      .order('recorded_at', { ascending: true });
+    if (error || !data) return [];
+    return (data as Record<string, unknown>[]).map((r) => ({
+      id: r.id as string,
+      vehicleRequestId: r.vehicle_request_id as string,
+      phase: r.phase as 'checkout' | 'checkin',
+      odometer: r.odometer != null ? Number(r.odometer) : null,
+      fuelLevelPercent: r.fuel_level_percent != null ? Number(r.fuel_level_percent) : null,
+      conditionNotes: (r.condition_notes as string) ?? null,
+      maintenanceFlag: r.maintenance_flag === true,
+      recordedByProfileId: r.recorded_by_profile_id as string,
+      recordedAt: r.recorded_at as string,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function listLogisticsAuditForRequest(organizationId: string, requestId: string): Promise<LogisticsAuditEvent[]> {
+  try {
+    const [a, b] = await Promise.all([
+      supabase
+        .from('logistics_audit_events')
+        .select('id,organization_id,subject_type,subject_id,actor_profile_id,event_type,details,created_at')
+        .eq('organization_id', organizationId)
+        .eq('subject_type', 'vehicle_request')
+        .eq('subject_id', requestId)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('logistics_audit_events')
+        .select('id,organization_id,subject_type,subject_id,actor_profile_id,event_type,details,created_at')
+        .eq('organization_id', organizationId)
+        .eq('subject_type', 'vehicle_handover')
+        .eq('subject_id', requestId)
+        .order('created_at', { ascending: true }),
+    ]);
+    const rows = [...(a.data || []), ...(b.data || [])] as Record<string, unknown>[];
+    rows.sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)));
+    return rows.map((r) => ({
+      id: r.id as string,
+      organizationId: r.organization_id as string,
+      subjectType: r.subject_type as string,
+      subjectId: r.subject_id as string,
+      actorProfileId: (r.actor_profile_id as string) ?? null,
+      eventType: r.event_type as string,
+      details: (r.details as Record<string, unknown>) ?? {},
+      createdAt: r.created_at as string,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function fetchProfilesByIds(ids: string[]): Promise<Map<string, ProfileOption>> {
+  const uniq = [...new Set(ids.filter(Boolean))];
+  const map = new Map<string, ProfileOption>();
+  if (!uniq.length) return map;
+  try {
+    const { data, error } = await supabase.from('profiles').select('id,full_name,email').in('id', uniq);
+    if (error || !data) return map;
+    for (const r of data as Record<string, unknown>[]) {
+      map.set(r.id as string, {
+        id: r.id as string,
+        fullName: (r.full_name as string) ?? null,
+        email: (r.email as string) ?? null,
+      });
+    }
+  } catch {
+    /* ignore */
+  }
+  return map;
+}
+
+/**
+ * Charge une demande véhicule et les données liées (transitions, constats, audit, véhicule, photos, partenaire).
+ */
+export async function fetchVehicleRequestDetailBundle(requestId: string): Promise<VehicleRequestDetailBundle | null> {
+  try {
+    const { data: row, error } = await supabase.from('vehicle_requests').select('*').eq('id', requestId).maybeSingle();
+    if (error || !row) return null;
+    const base = mapRequest(row as Record<string, unknown>);
+    const orgId = base.organizationId;
+
+    const [transitions, handovers, auditEvents, vehicleRes, pvRes] = await Promise.all([
+      listVehicleRequestTransitions(requestId),
+      listVehicleHandoverReports(requestId),
+      listLogisticsAuditForRequest(orgId, requestId),
+      base.vehicleId
+        ? supabase.from('vehicles').select('*').eq('id', base.vehicleId).maybeSingle()
+        : Promise.resolve({ data: null as Record<string, unknown> | null }),
+      base.partnerVehicleId
+        ? supabase.from('transport_partner_vehicles').select('*').eq('id', base.partnerVehicleId).maybeSingle()
+        : Promise.resolve({ data: null as Record<string, unknown> | null }),
+    ]);
+
+    let vehicle: Vehicle | null = null;
+    if (vehicleRes.data) vehicle = mapVehicle(vehicleRes.data as Record<string, unknown>);
+
+    let partnerVehicle: TransportPartnerVehicle | null = null;
+    let partnerCompany: TransportPartnerCompany | null = null;
+    if (pvRes.data) {
+      const pvr = pvRes.data as Record<string, unknown>;
+      partnerVehicle = {
+        id: pvr.id as string,
+        organizationId: pvr.organization_id as string,
+        partnerCompanyId: pvr.partner_company_id as string,
+        label: pvr.label as string,
+        plateNumber: (pvr.plate_number as string) ?? null,
+        seats: pvr.seats != null ? Number(pvr.seats) : null,
+        notes: (pvr.notes as string) ?? null,
+        active: pvr.active !== false,
+      };
+      const { data: pc } = await supabase
+        .from('transport_partner_companies')
+        .select('*')
+        .eq('id', partnerVehicle.partnerCompanyId)
+        .maybeSingle();
+      if (pc) {
+        const pcr = pc as Record<string, unknown>;
+        partnerCompany = {
+          id: pcr.id as string,
+          organizationId: pcr.organization_id as string,
+          name: pcr.name as string,
+          contactEmail: (pcr.contact_email as string) ?? null,
+          phone: (pcr.phone as string) ?? null,
+          notes: (pcr.notes as string) ?? null,
+          active: pcr.active !== false,
+        };
+      }
+    }
+
+    const programmeIds = base.programmeId ? [base.programmeId] : [];
+    const projectIds = base.projectId ? [base.projectId] : [];
+    const taskIds = base.taskId ? [base.taskId] : [];
+
+    const [programmesRes, projectsRes, tasksRes] = await Promise.all([
+      programmeIds.length
+        ? supabase.from('programmes').select('id,name').in('id', programmeIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      projectIds.length
+        ? supabase.from('projects').select('id,title').in('id', projectIds)
+        : Promise.resolve({ data: [] as { id: string; title: string }[] }),
+      taskIds.length
+        ? supabase.from('tasks').select('id,title').in('id', taskIds)
+        : Promise.resolve({ data: [] as { id: string; title: string }[] }),
+    ]);
+
+    const progMap = new Map((programmesRes.data || []).map((p: { id: string; name: string }) => [p.id, p.name]));
+    const projMap = new Map((projectsRes.data || []).map((p: { id: string; title: string }) => [p.id, p.title]));
+    const taskMap = new Map((tasksRes.data || []).map((t: { id: string; title: string }) => [t.id, t.title]));
+
+    if (base.programmeId) base.programmeName = progMap.get(base.programmeId);
+    if (base.projectId) base.projectTitle = projMap.get(base.projectId);
+    if (base.taskId) base.taskTitle = taskMap.get(base.taskId);
+    if (base.partnerVehicleId && partnerVehicle) {
+      base.partnerVehicleLabel = partnerVehicle.label;
+      if (partnerCompany) base.partnerCompanyName = partnerCompany.name;
+    }
+
+    const photos = base.vehicleId ? await listVehiclePhotos(base.vehicleId) : [];
+
+    const profileIds: string[] = [
+      base.requesterId,
+      base.designatedApproverProfileId,
+      base.n1ValidatedByProfileId,
+      base.fleetValidatedByProfileId,
+      base.allocatedByProfileId,
+      base.rejectedByProfileId,
+      ...transitions.map((t) => t.actorProfileId).filter(Boolean) as string[],
+      ...handovers.map((h) => h.recordedByProfileId),
+      ...auditEvents.map((e) => e.actorProfileId).filter(Boolean) as string[],
+    ];
+    const profilesById = await fetchProfilesByIds(profileIds);
+
+    return {
+      request: base,
+      transitions,
+      handovers,
+      auditEvents,
+      vehicle,
+      partnerVehicle,
+      partnerCompany,
+      photos,
+      profilesById,
+    };
+  } catch (e) {
+    console.error('parcAutoService.fetchVehicleRequestDetailBundle:', e);
+    return null;
   }
 }

@@ -683,7 +683,10 @@ export class DriveService {
     const { user, profile } = ctx.data;
 
     const sizeCheck = DriveService.validateUploadSize(params.file);
-    if (!sizeCheck.ok) return { data: null as DriveItem | null, error: sizeCheck.error };
+    if (!sizeCheck.ok) {
+      const uploadSizeError = (sizeCheck as { ok: false; error: Error }).error;
+      return { data: null as DriveItem | null, error: uploadSizeError };
+    }
 
     let workspaceId: string | null = null;
     if (params.parentId) {

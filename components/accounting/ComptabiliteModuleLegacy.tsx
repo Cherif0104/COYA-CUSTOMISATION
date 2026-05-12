@@ -3,7 +3,22 @@ import StructuredModulePage from '../common/StructuredModulePage';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useAuth } from '../../contexts/AuthContextSupabase';
 import { useModulePermissions } from '../../hooks/useModulePermissions';
-import { Language, ChartOfAccount, AccountingJournal, JournalEntry, JournalEntryStatus, ChartAccountType, AccountingFramework, CostCenter, FiscalRule, Budget, ChartAccountFramework, AccountingMatchingGroup, AccountingReconciliation, AccountingPeriodClosure } from '../../types';
+import {
+  Language,
+  ChartOfAccount,
+  AccountingJournal,
+  JournalEntry,
+  JournalEntryStatus,
+  ChartAccountType,
+  AccountingFramework,
+  CostCenter,
+  FiscalRule,
+  AccountingBudget,
+  ChartAccountFramework,
+  AccountingMatchingGroup,
+  AccountingReconciliation,
+  AccountingPeriodClosure,
+} from '../../types';
 import * as comptabiliteService from '../../services/comptabiliteService';
 import OrganizationService from '../../services/organizationService';
 
@@ -41,7 +56,7 @@ const FiscalYearsList: React.FC<{
  * plateforme et les rôles Comptabilité (editor/validator/admin) y ont accès ; les lecteurs (viewer)
  * voient uniquement les données en lecture seule.
  */
-const ComptabiliteModuleLegacy: React.FC = () => {
+const ComptabiliteModuleLegacy: React.FC<{ onBackToModern?: () => void }> = ({ onBackToModern }) => {
   const { language } = useLocalization();
   const { user: currentUser } = useAuth();
   const { permissions } = useModulePermissions();
@@ -73,7 +88,7 @@ const ComptabiliteModuleLegacy: React.FC = () => {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [fiscalRules, setFiscalRules] = useState<FiscalRule[]>([]);
-  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [budgets, setBudgets] = useState<AccountingBudget[]>([]);
   const [matchingGroups, setMatchingGroups] = useState<AccountingMatchingGroup[]>([]);
   const [reconciliations, setReconciliations] = useState<AccountingReconciliation[]>([]);
   const [closures, setClosures] = useState<AccountingPeriodClosure[]>([]);
@@ -497,6 +512,15 @@ const ComptabiliteModuleLegacy: React.FC = () => {
             <p className="mt-1 text-2xl font-semibold text-slate-900">{entries.filter((e) => (e.status || 'draft') === 'draft').length}</p>
           </div>
         </div>
+        {onBackToModern && (
+          <button
+            type="button"
+            onClick={onBackToModern}
+            className="mt-3 inline-flex items-center rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Revenir à la vue comptabilité moderne
+          </button>
+        )}
       </div>
 
       <div className="mb-3 flex items-center justify-between">
@@ -778,23 +802,38 @@ const ComptabiliteModuleLegacy: React.FC = () => {
               fiscalRules={fiscalRules}
               defaultDate={reportDateTo}
               onSubmit={async (payload) => {
-                await comptabiliteService.createJournalEntry({
-                  organizationId,
-                  journalId: payload.journalId,
-                  entryDate: payload.entryDate,
-                  reference: payload.reference || null,
-                  description: payload.description || null,
-                  documentNumber: payload.documentNumber || null,
-                  attachmentType: payload.attachmentType || null,
-                  attachmentUrl: payload.attachmentUrl || null,
-                  resourceName: payload.resourceName || null,
-                  resourceDatabaseUrl: payload.resourceDatabaseUrl || null,
-                  createdById: currentUserId,
-                  lines: [
-                    { accountId: payload.accountIdDebit, label: payload.labelDebit, debit: payload.amount, credit: 0, costCenterId: payload.costCenterIdDebit || null, fiscalCode: payload.fiscalCodeDebit || null },
-                    { accountId: payload.accountIdCredit, label: payload.labelCredit, debit: 0, credit: payload.amount, costCenterId: payload.costCenterIdCredit || null, fiscalCode: payload.fiscalCodeCredit || null },
+                await comptabiliteService.postBalancedJournalEntry(
+                  {
+                    organizationId,
+                    journalId: payload.journalId,
+                    entryDate: payload.entryDate,
+                    reference: payload.reference || null,
+                    description: payload.description || null,
+                    documentNumber: payload.documentNumber || null,
+                    attachmentType: payload.attachmentType || null,
+                    attachmentUrl: payload.attachmentUrl || null,
+                    resourceName: payload.resourceName || null,
+                    resourceDatabaseUrl: payload.resourceDatabaseUrl || null,
+                    createdById: currentUserId,
+                    status: 'validated',
+                  },
+                  [
+                    {
+                      accountId: payload.accountIdDebit,
+                      label: payload.labelDebit,
+                      debit: payload.amount,
+                      costCenterId: payload.costCenterIdDebit || null,
+                      fiscalCode: payload.fiscalCodeDebit || null,
+                    },
+                    {
+                      accountId: payload.accountIdCredit,
+                      label: payload.labelCredit,
+                      credit: payload.amount,
+                      costCenterId: payload.costCenterIdCredit || null,
+                      fiscalCode: payload.fiscalCodeCredit || null,
+                    },
                   ],
-                });
+                );
                 setShowEntryForm(false);
                 loadEntries();
               }}

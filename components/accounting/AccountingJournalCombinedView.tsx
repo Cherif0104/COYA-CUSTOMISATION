@@ -28,100 +28,6 @@ export type JournalRow = {
   statut: JournalRowStatut;
 };
 
-const JOURNAL_ROWS: JournalRow[] = [
-  {
-    rowKey: 'demo-892-601',
-    id: 'JE-2024-0892',
-    date: '15/12/2024',
-    journal: 'Achats',
-    libelle: 'Facture matériel bureau',
-    reference: 'FAC-4421',
-    compte: '601000 · Achats stockés',
-    debit: 2_500_000,
-    credit: null,
-    statut: 'Validée',
-  },
-  {
-    rowKey: 'demo-893-445',
-    id: 'JE-2024-0893',
-    date: '15/12/2024',
-    journal: 'Achats',
-    libelle: 'Facture matériel bureau',
-    reference: 'FAC-4421',
-    compte: '445660 · TVA déductible',
-    debit: 450_000,
-    credit: null,
-    statut: 'Validée',
-  },
-  {
-    rowKey: 'demo-894-401',
-    id: 'JE-2024-0894',
-    date: '15/12/2024',
-    journal: 'Achats',
-    libelle: 'Facture matériel bureau',
-    reference: 'FAC-4421',
-    compte: '401000 · Fournisseurs',
-    debit: null,
-    credit: 2_950_000,
-    statut: 'Validée',
-  },
-  {
-    rowKey: 'demo-895-411',
-    id: 'JE-2024-0895',
-    date: '14/12/2024',
-    journal: 'Ventes',
-    libelle: 'Encaissement client Alpha SA',
-    reference: 'ENC-1288',
-    compte: '411000 · Clients',
-    debit: null,
-    credit: 12_000_000,
-    statut: 'Validée',
-  },
-  {
-    rowKey: 'demo-896-521',
-    id: 'JE-2024-0896',
-    date: '14/12/2024',
-    journal: 'Banque',
-    libelle: 'Encaissement client Alpha SA',
-    reference: 'ENC-1288',
-    compte: '521001 · Banque principale',
-    debit: 12_000_000,
-    credit: null,
-    statut: 'Validée',
-  },
-  {
-    rowKey: 'demo-897-681',
-    id: 'JE-2024-0897',
-    date: '13/12/2024',
-    journal: 'OD',
-    libelle: 'Dotations aux amortissements',
-    reference: 'OD-DEC24',
-    compte: '681300 · Dotations amortissements',
-    debit: 875_000,
-    credit: null,
-    statut: 'Validée',
-  },
-  {
-    rowKey: 'demo-898-281',
-    id: 'JE-2024-0898',
-    date: '13/12/2024',
-    journal: 'OD',
-    libelle: 'Dotations aux amortissements',
-    reference: 'OD-DEC24',
-    compte: '281300 · Amortissements cumulés',
-    debit: null,
-    credit: 875_000,
-    statut: 'Validée',
-  },
-];
-
-const DONUT_DATA = [
-  { name: 'Achats', value: 38, color: '#2563eb' },
-  { name: 'Ventes', value: 27, color: '#3b82f6' },
-  { name: 'Banque', value: 22, color: '#60a5fa' },
-  { name: 'OD', value: 13, color: '#93c5fd' },
-];
-
 const REPORT_LIST = [
   'Balance générale',
   'Grand livre',
@@ -131,32 +37,6 @@ const REPORT_LIST = [
   'Bilan',
   'Compte de résultat',
   'Annexes',
-];
-
-const bilanActif = [
-  { label: 'IMMOBILISATIONS INCORPORELLES', n2024: 125_000_000, n2023: 118_000_000 },
-  { label: 'IMMOBILISATIONS CORPORELLES', n2024: 485_000_000, n2023: 452_000_000 },
-  { label: 'IMMOBILISATIONS FINANCIÈRES', n2024: 95_000_000, n2023: 95_000_000 },
-  { label: 'TOTAL ACTIF IMMOBILISÉ', n2024: 705_000_000, n2023: 665_000_000, bold: true },
-  { label: 'STOCKS ET ENCOURS', n2024: 182_000_000, n2023: 165_000_000 },
-  { label: 'CRÉANCES CLIENTS', n2024: 248_000_000, n2023: 221_000_000 },
-  { label: 'AUTRES CRÉANCES', n2024: 42_000_000, n2023: 38_500_000 },
-  { label: 'TRÉSORERIE', n2024: 118_500_000, n2023: 89_200_000 },
-  { label: 'TOTAL ACTIF CIRCULANT', n2024: 590_500_000, n2023: 513_700_000, bold: true },
-  { label: 'TOTAL ACTIF', n2024: 1_295_500_000, n2023: 1_178_700_000, bold: true },
-];
-
-const bilanPassif = [
-  { label: 'CAPITAL SOCIAL', n2024: 200_000_000, n2023: 200_000_000 },
-  { label: 'RÉSERVES', n2024: 145_000_000, n2023: 132_000_000 },
-  { label: 'REPORT À NOUVEAU', n2024: 28_500_000, n2023: 22_000_000 },
-  { label: 'RÉSULTAT NET', n2024: 87_000_000, n2023: 74_500_000 },
-  { label: 'TOTAL CAPITAUX PROPRES', n2024: 460_500_000, n2023: 428_500_000, bold: true },
-  { label: 'EMPRUNTS LT', n2024: 320_000_000, n2023: 340_000_000 },
-  { label: 'DETTES FOURNISSEURS', n2024: 185_000_000, n2023: 162_000_000 },
-  { label: 'DETTES FISCALES ET SOCIALES', n2024: 98_000_000, n2023: 91_200_000 },
-  { label: 'AUTRES DETTES', n2024: 232_000_000, n2023: 157_000_000 },
-  { label: 'TOTAL PASSIF', n2024: 1_295_500_000, n2023: 1_178_700_000, bold: true },
 ];
 
 const card =
@@ -180,10 +60,13 @@ function buildDonutFromRows(rows: JournalRow[]) {
 
 export type AccountingJournalCombinedViewProps = {
   /**
-   * `undefined` / `null` = jeu de données de démonstration.
-   * Tableau (éventuellement vide) = lignes issues de Supabase.
+   * Tableau (éventuellement vide) = lignes issues de Supabase ou d’une autre source réelle.
    */
   journalRows?: JournalRow[] | null;
+  /** Autorise la création d’une nouvelle écriture depuis cette vue. */
+  canCreateEntry?: boolean;
+  /** Callback déclenché au clic sur « + Nouvelle écriture ». */
+  onClickNewEntry?: () => void;
   loading?: boolean;
   loadError?: string | null;
   /** Texte sous le titre du journal (source / période). */
@@ -202,6 +85,8 @@ export type AccountingJournalCombinedViewProps = {
 
 const AccountingJournalCombinedView: React.FC<AccountingJournalCombinedViewProps> = ({
   journalRows = null,
+  canCreateEntry = false,
+  onClickNewEntry,
   loading = false,
   loadError = null,
   dataSourceHint,
@@ -218,7 +103,7 @@ const AccountingJournalCombinedView: React.FC<AccountingJournalCombinedViewProps
   const [insightTab, setInsightTab] = useState<'resume' | 'analytics' | 'infos'>('resume');
   const [reportTab, setReportTab] = useState<'print' | 'pdf' | 'xlsx'>('print');
 
-  const rows = journalRows === undefined || journalRows === null ? JOURNAL_ROWS : journalRows;
+  const rows = journalRows ?? [];
 
   const totals = useMemo(() => {
     let d = 0;
@@ -231,16 +116,12 @@ const AccountingJournalCombinedView: React.FC<AccountingJournalCombinedViewProps
   }, [rows]);
 
   const donutData = useMemo(() => {
-    if (journalRows === undefined || journalRows === null) return DONUT_DATA;
     if (rows.length === 0) return [{ name: '—', value: 100, color: '#94a3b8' }];
     const built = buildDonutFromRows(rows);
     return built.length > 0 ? built : [{ name: '—', value: 100, color: '#94a3b8' }];
-  }, [journalRows, rows]);
+  }, [rows]);
 
-  const hintDefault =
-    journalRows === undefined || journalRows === null
-      ? 'Période sélectionnée · données de démonstration'
-      : 'Période sélectionnée · données de votre organisation';
+  const hintDefault = 'Période sélectionnée';
   const subtitle = dataSourceHint ?? hintDefault;
 
   return (
@@ -269,6 +150,8 @@ const AccountingJournalCombinedView: React.FC<AccountingJournalCombinedViewProps
             ) : null}
             <button
               type="button"
+              disabled={!canCreateEntry || !onClickNewEntry}
+              onClick={canCreateEntry && onClickNewEntry ? () => onClickNewEntry() : undefined}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
             >
               + Nouvelle écriture
@@ -516,9 +399,9 @@ const AccountingJournalCombinedView: React.FC<AccountingJournalCombinedViewProps
               )}
               {insightTab === 'infos' && (
                 <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
-                  <li>· Exercice fiscal 2024 — COYA GROUP SARL</li>
-                  <li>· Dernière clôture mensuelle : 30/11/2024</li>
-                  <li>· Journal par défaut : Achats</li>
+                  <li>· Résumé basé sur les écritures affichées dans le tableau.</li>
+                  <li>· Ajustez la période, le journal et les filtres pour affiner les montants.</li>
+                  <li>· Les rapports détaillés (bilan, compte de résultat, flux) se trouvent dans les autres onglets du module.</li>
                 </ul>
               )}
             </div>
@@ -531,7 +414,7 @@ const AccountingJournalCombinedView: React.FC<AccountingJournalCombinedViewProps
         <div className="border-b border-slate-100 px-5 py-4 dark:border-slate-700">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Rapports</h2>
           <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-            Génération et aperçu — démo bilan comparatif
+            Génération et aperçu — branchement sur les rapports comptables de votre organisation.
           </p>
         </div>
         <div className="grid gap-0 lg:grid-cols-[200px_minmax(280px,1fr)_minmax(320px,1.2fr)]">
@@ -634,79 +517,25 @@ const AccountingJournalCombinedView: React.FC<AccountingJournalCombinedViewProps
               <div className="mx-auto max-w-3xl rounded-lg bg-white p-6 shadow-sm dark:bg-slate-900">
                 <header className="text-center">
                   <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-                    COYA GROUP SARL
+                    Rapports comptables
                   </p>
                   <h4 className="mt-2 text-base font-bold text-slate-900 dark:text-white">
-                    BILAN COMPARATIF au 31/12/2024
+                    Aperçu des exports
                   </h4>
-                  <p className="mt-1 text-xs text-slate-500">Montants en FCFA — données de démonstration</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Les exports PDF / Excel s&apos;appuieront sur les mêmes agrégats que les vues « Bilan », « Compte de
+                    résultat » et « Flux de trésorerie » du module Comptabilité.
+                  </p>
                 </header>
-                <div className="mt-6 grid gap-6 md:grid-cols-2">
-                  <div>
-                    <p className="mb-2 text-center text-xs font-bold uppercase text-slate-700 dark:text-slate-300">
-                      Actif
-                    </p>
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-slate-200 text-slate-500 dark:border-slate-600">
-                          <th className="py-1 text-left font-medium">Libellé</th>
-                          <th className="py-1 text-right font-medium">2024</th>
-                          <th className="py-1 text-right font-medium">2023</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {bilanActif.map((row) => (
-                          <tr
-                            key={row.label}
-                            className={`border-b border-slate-100 dark:border-slate-700 ${row.bold ? 'font-semibold text-slate-900 dark:text-white' : ''}`}
-                          >
-                            <td className="py-1.5 pr-2 text-slate-700 dark:text-slate-300">{row.label}</td>
-                            <td className="py-1.5 text-right font-mono tabular-nums">
-                              {(row.n2024 / 1_000_000).toLocaleString('fr-FR')} M
-                            </td>
-                            <td className="py-1.5 text-right font-mono tabular-nums text-slate-500">
-                              {(row.n2023 / 1_000_000).toLocaleString('fr-FR')} M
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div>
-                    <p className="mb-2 text-center text-xs font-bold uppercase text-slate-700 dark:text-slate-300">
-                      Passif
-                    </p>
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-slate-200 text-slate-500 dark:border-slate-600">
-                          <th className="py-1 text-left font-medium">Libellé</th>
-                          <th className="py-1 text-right font-medium">2024</th>
-                          <th className="py-1 text-right font-medium">2023</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {bilanPassif.map((row) => (
-                          <tr
-                            key={row.label}
-                            className={`border-b border-slate-100 dark:border-slate-700 ${row.bold ? 'font-semibold text-slate-900 dark:text-white' : ''}`}
-                          >
-                            <td className="py-1.5 pr-2 text-slate-700 dark:text-slate-300">{row.label}</td>
-                            <td className="py-1.5 text-right font-mono tabular-nums">
-                              {(row.n2024 / 1_000_000).toLocaleString('fr-FR')} M
-                            </td>
-                            <td className="py-1.5 text-right font-mono tabular-nums text-slate-500">
-                              {(row.n2023 / 1_000_000).toLocaleString('fr-FR')} M
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+                  Sélectionnez un type de rapport et une période, puis utilisez les boutons ci-dessus pour déclencher
+                  un export côté backend. Cette zone n&apos;affiche volontairement aucune donnée simulée afin de rester
+                  alignée sur vos tables réelles.
+                </p>
                 <p className="mt-4 text-center text-[10px] text-slate-400">
-                  {reportTab === 'print' && 'Aperçu avant impression'}
-                  {reportTab === 'pdf' && 'Export PDF simulé'}
-                  {reportTab === 'xlsx' && 'Export Excel simulé'}
+                  {reportTab === 'print' && 'Préparation de la mise en page à imprimer.'}
+                  {reportTab === 'pdf' && 'Export PDF (à brancher sur votre API d’exports).'}
+                  {reportTab === 'xlsx' && 'Export Excel (à brancher sur votre API d’exports).'}
                 </p>
               </div>
             </div>

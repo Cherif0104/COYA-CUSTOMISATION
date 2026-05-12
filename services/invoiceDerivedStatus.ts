@@ -10,7 +10,7 @@ export function derivePersistedInvoiceStatus(
 ): string {
   const total = Number(amount) || 0;
   let paid = 0;
-  if (paidAmount !== null && paidAmount !== undefined && paidAmount !== '') {
+  if (paidAmount != null) {
     const n = Number(paidAmount);
     if (!Number.isNaN(n) && n > 0) paid = n;
   }

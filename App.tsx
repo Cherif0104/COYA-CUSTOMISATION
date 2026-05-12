@@ -20,7 +20,6 @@ import Login from './components/Login';
 import StatusSelectorModal from './components/StatusSelectorModal';
 import { getSkipStatusSelector } from './components/StatusSelector';
 import Header from './components/Header';
-import { PresenceProvider } from './contexts/PresenceContext';
 import {
   AppNavigationContext,
   NAV_SESSION_COLLECTE_PRESET_FORMATION_ID,
@@ -37,7 +36,8 @@ import ProgrammeModule from './components/ProgrammeModule';
 import ProgrammesProjectsShell from './components/ProgrammesProjectsShell';
 import CourseDetail from './components/CourseDetail';
 import CourseManagement from './components/CourseManagement';
-import FormationHub from './components/FormationHub';
+import ApexModuleShell from './components/apex/ApexModuleShell';
+import ApexAccessLanding from './components/apex/ApexAccessLanding';
 import JobManagement from './components/JobManagement';
 import LeaveManagementAdmin from './components/LeaveManagementAdmin';
 import StrategyGovernanceHub from './components/StrategyGovernanceHub';
@@ -50,6 +50,7 @@ import AIAgent from './components/AIAgent';
 import LeaveManagement from './components/LeaveManagement';
 import RealtimeService from './services/realtimeService';
 import OrganizationService from './services/organizationService';
+import { publishAccountingEvent, registerDefaultAccountingHandlers } from './services/accountingEvents';
 import { supabase } from './services/supabaseService';
 import OrganizationManagement from './components/OrganizationManagement';
 import DepartmentManagement from './components/DepartmentManagement';
@@ -109,6 +110,49 @@ const App: React.FC = () => {
     }
     return roleValue.replace(/_/g, ' ');
   }, [t]);
+
+  // Enregistre les handlers comptables par défaut (pont factures → écritures, etc.).
+  useEffect(() => {
+    registerDefaultAccountingHandlers();
+  }, []);
+
+  const emitInvoiceAccountingEvent = useCallback((invoice: Invoice) => {
+    // Ne déclenche le pont comptable que pour les factures effectivement engagées
+    // (émises / payées) ; le handler applique en plus une idempotence côté écritures.
+    const engagedStatuses: Invoice['status'][] = ['Sent', 'Paid', 'Overdue', 'Partially Paid'];
+    if (!engagedStatuses.includes(invoice.status)) return;
+    void (async () => {
+      try {
+        const organizationId = await OrganizationService.getCurrentUserOrganizationId();
+        if (!organizationId) return;
+        await publishAccountingEvent({
+          type: 'accounting.invoice_issued',
+          organizationId,
+          invoice,
+        });
+      } catch (err) {
+        console.error('⚠️ emitInvoiceAccountingEvent failed:', err);
+      }
+    })();
+  }, []);
+
+  const emitExpenseAccountingEvent = useCallback((expense: Expense) => {
+    // Pont uniquement pour les dépenses effectivement payées.
+    if (expense.status !== 'Paid') return;
+    void (async () => {
+      try {
+        const organizationId = await OrganizationService.getCurrentUserOrganizationId();
+        if (!organizationId) return;
+        await publishAccountingEvent({
+          type: 'accounting.expense_recorded',
+          organizationId,
+          expense,
+        });
+      } catch (err) {
+        console.error('⚠️ emitExpenseAccountingEvent failed:', err);
+      }
+    })();
+  }, []);
   const handlePendingLogout = useCallback(async () => {
     try {
       await signOut();
@@ -128,8 +172,8 @@ const App: React.FC = () => {
   // Récupérer la vue précédente depuis localStorage (pour éviter le flash au refresh)
   const rawSavedView = typeof window !== 'undefined' ? localStorage.getItem('lastView') : null;
   let savedView =
-    rawSavedView === 'courses'
-      ? 'formation'
+    rawSavedView === 'courses' || rawSavedView === 'formation'
+      ? 'apex'
       : rawSavedView === 'knowledge_base'
         ? 'coya_drive'
         : rawSavedView;
@@ -141,10 +185,14 @@ const App: React.FC = () => {
   const projectIdFromUrlHydrate = typeof window !== 'undefined' ? getProjectIdFromUrl() : null;
   const authRecoveryFromUrl =
     typeof window !== 'undefined' && isAuthRecoveryPathname(window.location.pathname);
+  const apexAccessFromUrl =
+    typeof window !== 'undefined' && window.location.pathname.startsWith('/apex/access');
   // Lien direct `/hr/employees/:id` → workspace salarié ; sinon `?projectId=` / `/projects/:id` → projet.
   // `/auth/recovery` (lien e-mail Supabase) → vue connexion pour éviter un flash tableau de bord.
   const validInitialView = authRecoveryFromUrl
     ? 'login'
+    : apexAccessFromUrl
+    ? 'apex_access'
     : hrEmployeeProfileIdFromUrlHydrate
     ? 'employee_workspace'
     : projectIdFromUrlHydrate
@@ -464,7 +512,7 @@ const App: React.FC = () => {
   // Handler pour setView qui persiste dans localStorage
   const handleSetView = useCallback((view: string) => {
     const normalized =
-      view === 'courses' ? 'formation' : view === 'knowledge_base' ? 'coya_drive' : view;
+      view === 'courses' || view === 'formation' ? 'apex' : view === 'knowledge_base' ? 'coya_drive' : view;
     const nextView = REMOVED_APP_VIEWS.has(normalized) ? 'dashboard' : normalized;
     // #region agent log
     fetch('/__debug/ingest', {
@@ -594,7 +642,7 @@ const App: React.FC = () => {
 
     if (type === 'course' || type === 'courses') {
       setPendingNotification({ entityType: 'course', entityId: autoOpenId });
-      handleSetView('formation');
+      handleSetView('apex');
       return;
     }
 
@@ -741,7 +789,7 @@ const App: React.FC = () => {
 
     if (type === 'course' || type === 'courses') {
       setPendingNotification({ entityType: 'course', entityId: autoOpenId });
-      handleSetView('formation');
+      handleSetView('apex');
       return;
     }
 
@@ -1831,6 +1879,9 @@ const App: React.FC = () => {
             }
           });
         }
+
+        // Pont factures → comptabilité (émission immédiate si statut déjà engagé).
+        emitInvoiceAccountingEvent(newInvoice);
       } else {
         console.error('❌ App.handleAddInvoice - newInvoice est null');
         // Recharger depuis Supabase au cas où
@@ -1868,6 +1919,11 @@ const App: React.FC = () => {
             NotificationHelper.notifyInvoicePaid(result, user as any).catch(err => {
               console.error('Erreur notification facture payée:', err);
             });
+          }
+
+          // Pont factures → comptabilité sur transition vers un statut engagé.
+          if (!oldInvoice || oldInvoice.status !== result.status) {
+            emitInvoiceAccountingEvent(result);
           }
 
           if (user) {
@@ -1923,6 +1979,8 @@ const App: React.FC = () => {
       const newExpense = await DataAdapter.createExpense(expenseData);
       if (newExpense) {
         setExpenses(prev => [newExpense, ...prev]);
+        // Pont dépenses → comptabilité (uniquement si déjà payée).
+        emitExpenseAccountingEvent(newExpense);
         if (user) {
           AuditLogService.logAction({
             action: 'create',
@@ -1950,6 +2008,10 @@ const App: React.FC = () => {
         const result = await DataAdapter.updateExpense(updatedExpense.id, updatedExpense);
         if (result) {
           setExpenses(prev => prev.map(e => e.id === updatedExpense.id ? result : e));
+          // Pont dépenses → comptabilité sur transition vers "Payé".
+          if (previousExpense && previousExpense.status !== 'Paid' && result.status === 'Paid') {
+            emitExpenseAccountingEvent(result);
+          }
           if (user) {
             const diff = previousExpense
               ? buildDiff(previousExpense, result, ['amount', 'currencyCode', 'category', 'transactionDate', 'status'])
@@ -3324,10 +3386,11 @@ const App: React.FC = () => {
             isDataLoaded={isDataLoaded}
           />
         );
+      case 'apex':
       case 'formation':
       case 'courses':
         return (
-          <FormationHub
+          <ApexModuleShell
             courses={courses}
             users={users}
             onSelectCourse={handleSelectCourse}
@@ -3339,12 +3402,14 @@ const App: React.FC = () => {
             setView={handleSetView}
           />
         );
+      case 'apex_access':
+        return <ApexAccessLanding setView={handleSetView} />;
       case 'course_detail':
         const course = courses.find(c => c.id === selectedCourseId);
         return course ? (
           <CourseDetail
             course={course}
-            onBack={() => handleSetView('formation')}
+            onBack={() => handleSetView('apex')}
             timeLogs={timeLogs}
             onAddTimeLog={handleAddTimeLog}
             projects={projects}
@@ -3582,7 +3647,6 @@ const App: React.FC = () => {
   };
   
   return (
-    <PresenceProvider>
     <AppNavigationContext.Provider value={{ setView: handleSetView }}>
     <div className="flex h-screen overflow-hidden bg-gray-50">
       <Sidebar
@@ -3650,7 +3714,6 @@ const App: React.FC = () => {
       />
     </div>
     </AppNavigationContext.Provider>
-    </PresenceProvider>
   );
 };
 

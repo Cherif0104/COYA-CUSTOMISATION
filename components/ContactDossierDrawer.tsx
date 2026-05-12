@@ -80,7 +80,7 @@ const ContactDossierDrawer: React.FC<Props> = ({ contact, open, onClose, canEdit
       title: payload.title,
       body: payload.body ?? null,
       metadata: payload.metadata ?? {},
-      createdByUserId: user?.id ?? null,
+      createdByUserId: user?.id != null ? String(user.id) : null,
     });
     if (error) setMsg(error.message);
     else {

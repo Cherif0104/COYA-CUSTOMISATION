@@ -372,9 +372,16 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         ) : (
           <ul className="space-y-0.5">
-            {allNavItems.map((item) =>
-              item.view === 'apex' && !effectiveCollapsed ? (
-                <li key={`${item.view}-${item.labelKey}`} className="space-y-0.5">
+            {allNavItems.map((item) => {
+              /** Clés distinctes pour APEX plein vs compact : même `view` mais arborescence incompatible → évite NotFoundError insertBefore (réconciliation React). */
+              const rowKey =
+                item.view === 'apex'
+                  ? effectiveCollapsed
+                    ? 'nav-apex-row-compact'
+                    : 'nav-apex-row-expanded'
+                  : item.view;
+              return item.view === 'apex' && !effectiveCollapsed ? (
+                <li key={rowKey} className="space-y-0.5">
                   <div className="flex items-stretch gap-0.5">
                     <div className="min-w-0 flex-1">
                       <NavItem
@@ -409,43 +416,44 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <i className={`fas fa-chevron-${apexNavExpanded ? 'up' : 'down'} text-[10px]`} />
                     </button>
                   </div>
-                  {apexNavExpanded ? (
-                    <ul className="ml-2 mt-0.5 space-y-0.5 border-l border-white/10 pl-2">
-                      {APEX_SIDEBAR_ITEMS.map((sub) => {
-                        const subActive =
-                          isItemActive('apex') && apexSidebarActiveSection === sub.section;
-                        return (
-                          <li key={sub.section}>
-                            <button
-                              type="button"
-                              data-testid={`nav-apex-${sub.section}`}
-                              onClick={() => {
-                                try {
-                                  sessionStorage.setItem(NAV_SESSION_APEX_SECTION, sub.section);
-                                } catch {
-                                  /* ignore */
-                                }
-                                pushApexSectionToUrl(sub.section);
-                                setView('apex');
-                                onCloseMobile?.();
-                                if (collapsed) setHoverPeekOpen(false);
-                              }}
-                              className={`flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[12px] transition-colors ${
-                                subActive
-                                  ? 'bg-pink-500/25 font-medium text-white'
-                                  : 'text-white/55 hover:bg-white/10 hover:text-white/90'
-                              }`}
-                            >
-                              <span className="truncate">{sub.label}</span>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : null}
+                  <ul
+                    className={`ml-2 mt-0.5 space-y-0.5 border-l border-white/10 pl-2 ${apexNavExpanded ? '' : 'hidden'}`}
+                    aria-hidden={!apexNavExpanded}
+                  >
+                    {APEX_SIDEBAR_ITEMS.map((sub) => {
+                      const subActive =
+                        isItemActive('apex') && apexSidebarActiveSection === sub.section;
+                      return (
+                        <li key={sub.section}>
+                          <button
+                            type="button"
+                            data-testid={`nav-apex-${sub.section}`}
+                            onClick={() => {
+                              try {
+                                sessionStorage.setItem(NAV_SESSION_APEX_SECTION, sub.section);
+                              } catch {
+                                /* ignore */
+                              }
+                              pushApexSectionToUrl(sub.section);
+                              setView('apex');
+                              onCloseMobile?.();
+                              if (collapsed) setHoverPeekOpen(false);
+                            }}
+                            className={`flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[12px] transition-colors ${
+                              subActive
+                                ? 'bg-pink-500/25 font-medium text-white'
+                                : 'text-white/55 hover:bg-white/10 hover:text-white/90'
+                            }`}
+                          >
+                            <span className="truncate">{sub.label}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </li>
               ) : item.view === 'apex' && effectiveCollapsed ? (
-                <li key={`${item.view}-${item.labelKey}`}>
+                <li key={rowKey}>
                   <NavItem
                     item={item}
                     active={isItemActive(item.view)}
@@ -466,7 +474,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   />
                 </li>
               ) : (
-                <li key={`${item.view}-${item.labelKey}`}>
+                <li key={rowKey}>
                   <NavItem
                     item={item}
                     active={isItemActive(item.view)}
@@ -480,8 +488,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                     dataTestId={`nav-${item.view}`}
                   />
                 </li>
-              ),
-            )}
+              );
+            })}
           </ul>
         )}
       </nav>

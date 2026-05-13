@@ -101,6 +101,7 @@ const NavItem: React.FC<{
   onClick: () => void;
   dataTestId?: string;
 }> = ({ item, active, collapsed, label, onClick, dataTestId }) => {
+  /** Toujours les mêmes enfants DOM (span, i, span) : évite insertBefore / NotFoundError avec React concurrent + hover menu. */
   return (
     <button
       type="button"
@@ -111,23 +112,25 @@ const NavItem: React.FC<{
         active ? 'bg-white/15 shadow-sm' : 'hover:bg-white/10'
       }`}
     >
-      {active && (
-        <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-coya-institutional-accent shadow-[0_0_12px_rgba(244,196,48,0.35)]" />
-      )}
+      <span
+        className={`pointer-events-none absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full shadow-[0_0_12px_rgba(244,196,48,0.35)] transition-opacity duration-150 ${
+          active ? 'bg-coya-institutional-accent opacity-100' : 'opacity-0'
+        }`}
+        aria-hidden={!active}
+      />
       <i
         className={`${item.icon} w-5 shrink-0 text-center text-[14px] transition-colors ${
           active ? item.color : 'text-white/50 group-hover:text-white/80'
         }`}
       />
-      {!collapsed && (
-        <span
-          className={`truncate text-sm transition-colors ${
-            active ? 'text-white font-medium' : 'text-white/65 group-hover:text-white/90'
-          }`}
-        >
-          {label}
-        </span>
-      )}
+      <span
+        className={`min-w-0 truncate text-sm transition-colors ${
+          collapsed ? 'hidden' : ''
+        } ${active ? 'text-white font-medium' : 'text-white/65 group-hover:text-white/90'}`}
+        aria-hidden={collapsed}
+      >
+        {label}
+      </span>
     </button>
   );
 };
@@ -318,6 +321,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside
       ref={asideRef}
+      translate="no"
       onPointerEnter={handleAsidePointerEnter}
       className={`fixed lg:relative z-50 flex h-full min-h-0 flex-col overflow-visible text-white transition-all duration-300 ease-in-out ${
         effectiveCollapsed ? 'w-[72px]' : 'w-[260px]'
